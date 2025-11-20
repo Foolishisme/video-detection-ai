@@ -28,3 +28,4 @@ requirements*.txt
 *.lock
 package-lock.json
 yarn.lock
+alerts/
