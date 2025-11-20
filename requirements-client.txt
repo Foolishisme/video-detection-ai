@@ -1,0 +1,20 @@
+# Windows 客户端依赖
+# 视频处理和显示
+opencv-python>=4.8.0
+
+# AI 模型
+ultralytics>=8.0.0
+
+# HTTP 客户端
+requests>=2.31.0
+
+# 配置管理
+pyyaml>=6.0
+
+# 数据处理
+numpy>=1.24.0
+pydantic>=2.0.0
+
+# 图像处理（用于压缩）
+pillow>=10.0.0
+

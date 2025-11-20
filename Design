@@ -1,0 +1,85 @@
+SmartMonitor 系统设计与技术规格说明书
+1. 项目愿景 (Vision) & 核心哲学
+本项目旨在构建一个低成本、高精度、低误报的室内危险动作实时监控系统。核心理念：认知驱动（利用 LLM 的常识判断），系统执行（利用 YOLO 的快速筛选）。风险控制：利用端云协同架构，在本地（Windows/CPU）低成本过滤 99% 无效帧，仅在云端（Linux/GPU）投入高算力处理 1% 疑似帧，实现资源配置的帕累托最优。2. 需求规格说明 (PRD)2.1 核心功能实时监控 (Real-time Monitoring): 支持 30FPS 视频流读取，无明显卡顿。姿态初筛 (Pose Detection): 本地识别“摔倒”、“躺卧”、“剧烈动作”等特征。智能仲裁 (AI Arbitration): 调用云端视觉大模型二次确认，排除瑜伽、睡觉等误报。即时报警 (Alerting): 界面红色警示 + 报警日志记录。2.2 性能指标端侧延迟: < 50ms (YOLOv8n-Pose on CPU)。云端延迟: < 3s (Qwen2-VL Int4 on T4 GPU)。系统吞吐: 支持单路 1080p 视频流。3. 技术路线选型 (Tech Stack)3.1 架构模式：生产者-消费者 (Producer-Consumer)解耦视频采集与 AI 推理，防止摄像头丢帧。3.2 关键技术栈模块选型理由 (Why)客户端 (Edge)Python 3.10生态最成熟。视觉模型YOLOv8n-Pose相比普通检测框，关键点能计算躯干角度，物理特征更可信。模型框架Ultralytics工业级封装，自带 Object Tracking (ByteTrack)。服务端 (Cloud)FastAPI异步高并发，原生支持 OpenAPI 文档。大模型Qwen2-VL-7B (Int4)T4 显卡上的最强多模态模型，Int4 量化平衡了显存与精度。前端 UIStreamlit极速构建数据看板，无需编写 HTML/CSS。通信协议HTTP (REST)MVP 阶段最简单稳定，传输 Base64 图片。4. 文件架构设计 (File Structure)SmartMonitor/
+├── client/                     # [Windows] 边缘端：采集与初筛
+│   ├── app.py                  # Streamlit 主入口 (UI)
+│   ├── core/
+│   │   ├── pipeline.py         # 视频流采集线程 (Producer)
+│   │   ├── detector.py         # YOLO-Pose 推理封装 (Consumer)
+│   │   └── rules.py            # 几何规则引擎 (角度计算/防抖逻辑)
+│   ├── utils/
+│   │   ├── visualization.py    # 骨架绘制工具
+│   │   └── api_client.py       # 与云端通信的 HTTP 客户端
+│   └── config.yaml             # 阈值、IP配置
+│
+├── server/                     # [Linux] 云端：大模型仲裁
+│   ├── main.py                 # FastAPI 启动入口
+│   ├── model_loader.py         # Qwen2-VL (Int4) 加载器 (单例模式)
+│   └── schemas.py              # API 请求/响应结构定义
+│
+├── shared/                     # 前后端共用的数据定义
+│   └── schemas.py              # Pydantic 模型 (FrameData, Alert)
+│
+├── requirements-client.txt     # Windows 依赖 (opencv, ultralytics, streamlit)
+├── requirements-server.txt     # Linux 依赖 (torch, transformers, qwen-vl-utils)
+└── .cursorrules                # AI 辅助编程规则
+5. 核心数据结构 (Schema Design)这是系统的骨架，确保前后端“语言互通”。5.1 shared/schemas.pyfrom pydantic import BaseModel
+from typing import List, Optional, Literal
+
+class Keypoint(BaseModel):
+    x: float
+    y: float
+    conf: float
+
+class PersonDetection(BaseModel):
+    track_id: int
+    bbox: List[float]  # [x1, y1, x2, y2]
+    keypoints: List[Keypoint]
+    # 计算属性
+    torso_angle: Optional[float] = None 
+
+class AlertType(str):
+    FALL = "FALL"
+    VIOLENCE = "VIOLENCE"
+
+class AnalysisRequest(BaseModel):
+    """发送给服务端的请求"""
+    image_base64: str
+    alert_type: str  # 疑似的类型，用于 Prompt 引导
+    metadata: dict   # 包含置信度等信息
+
+class AnalysisResponse(BaseModel):
+    """服务端返回的仲裁结果"""
+    is_danger: bool
+    reasoning: str
+    confidence: float
+6. 核心逻辑伪代码 (Logic Flow)6.1 客户端：规则引擎 (Client Rules)位置：client/core/rules.pyclass RuleEngine:
+    def __init__(self):
+        self.history = defaultdict(lambda: deque(maxlen=10)) # 防抖队列
+
+    def detect_fall(self, person: PersonDetection) -> bool:
+        # 1. 几何判定
+        is_horizontal = (bbox_width / bbox_height) > 1.2
+        angle_dangerous = abs(person.torso_angle) > 60
+        
+        current_status = is_horizontal or angle_dangerous
+        
+        # 2. 时间投票 (防抖)
+        self.history[person.track_id].append(current_status)
+        # 最近 10 帧里有 6 帧异常才算数
+        if sum(self.history[person.track_id]) >= 6:
+            return True
+        return False
+6.2 服务端：Prompt 工程 (Server Prompt)位置：server/main.pyPROMPT_TEMPLATE = """
+监测系统检测到画面中可能发生 {alert_type}。
+请分析画面中的人物姿态。
+- 如果人物在做瑜伽、睡觉或主动躺下，请判定为 SAFE。
+- 如果人物表现出失去平衡、痛苦、无法动弹，请判定为 DANGER。
+
+请以 JSON 格式返回：
+{{
+    "is_danger": true/false,
+    "reasoning": "..."
+}}
+"""
+7. 开发分步指南 (Step-by-Step Implementation)Phase 1: 服务端部署 (Linux)配置 Conda 环境 (Python 3.10)。实现 server/model_loader.py，确保能加载 Int4 版 Qwen2-VL。实现 FastAPI 接口，跑通 Postman 测试。Phase 2: 客户端核心 (Windows)实现 VideoPipeline，确保 cv2.imshow 能看到流畅视频。集成 YOLOv8n-pose，在画面上画出骨架。实现 RuleEngine，在控制台打印 "疑似摔倒"。Phase 3: 端云联调 & UI在客户端触发规则时，发送 HTTP 请求给服务端。使用 Streamlit 包装 UI，展示最终效果。

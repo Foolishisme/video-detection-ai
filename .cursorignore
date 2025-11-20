@@ -1,0 +1,30 @@
+# 忽略模型权重文件 (这是最吃 Token 的)
+*.pt
+*.pth
+*.onnx
+*.weights
+
+# 忽略视频和媒体文件
+*.mp4
+*.avi
+*.mov
+*.jpg
+*.png
+*.jpeg
+
+# 忽略 Python 编译缓存 (毫无意义的乱码)
+**/__pycache__/**
+*.pyc
+*.pyo
+*.pyd
+
+# 忽略环境和依赖 (防止索引几万个库文件)
+venv/
+env/
+.env
+requirements*.txt
+
+# 忽略其他非代码大文件
+*.lock
+package-lock.json
+yarn.lock
