@@ -25,6 +25,7 @@ sys.path.insert(0, str(project_root))
 from client.core.pipeline import VideoPipeline
 from client.core.detector import PersonDetector
 from client.utils.api_client import NetworkWorker
+from client.utils.gemini_client import GeminiWorker
 from client.utils.visualization import (
     draw_status_overlay,
     draw_alert_overlay,
@@ -61,7 +62,8 @@ class SmartMonitor:
         # 初始化组件
         self.pipeline: Optional[VideoPipeline] = None
         self.detector: Optional[PersonDetector] = None
-        self.network_worker: Optional[NetworkWorker] = None
+        # network_worker 可以是 NetworkWorker 或 GeminiWorker
+        self.network_worker: Optional[Any] = None
         self.alert_notifier: Optional[AlertNotifier] = None
         
         # 状态管理
@@ -87,6 +89,11 @@ class SmartMonitor:
         if self.save_alert_images:
             self.alert_images_dir.mkdir(exist_ok=True)
         
+        # 告警显示时间跟踪
+        self.alert_display_start_time: Optional[float] = None  # 告警开始显示的时间
+        self.alert_display_duration: float = 5.0  # 告警显示持续时间（秒）
+        self.last_alert_result: Optional[Dict[str, Any]] = None  # 最后一次告警结果
+        
         # 运行标志
         self.running = False
     
@@ -98,7 +105,9 @@ class SmartMonitor:
             
             # 合并配置
             merged_config = {
+                'llm_provider': config.get('llm_provider', 'remote'),  # 默认使用远端服务器
                 'server': config.get('server', {}),
+                'gemini': config.get('gemini', {}),
                 'thresholds': config.get('thresholds', {}),
                 'video': config.get('video', {}),
                 'cooldown_seconds': config.get('cooldown_seconds', 5.0)  # 默认5秒冷却
@@ -160,10 +169,27 @@ class SmartMonitor:
             model_path = "yolov8n.pt"  # 可以使用yolov8n-pose.pt如果需要姿态检测
             self.detector = PersonDetector(model_path=model_path)
             
-            # 3. 初始化网络工作线程
-            server_config = self.config.get('server', {})
-            server_url = f"http://{server_config.get('host', 'localhost')}:{server_config.get('port', 8000)}{server_config.get('endpoint', '/chat')}"
-            self.network_worker = NetworkWorker(server_url=server_url)
+            # 3. 初始化 LLM 工作线程（根据配置选择）
+            llm_provider = self.config.get('llm_provider', 'remote')
+            
+            if llm_provider == 'gemini':
+                # 使用 Gemini API
+                gemini_config = self.config.get('gemini', {})
+                api_key = gemini_config.get('api_key')  # 如果配置中有，优先使用
+                model_name = gemini_config.get('model_name', 'gemini-2.0-flash-exp')
+                
+                self.logger.info(f"使用 Gemini API，模型: {model_name}")
+                self.network_worker = GeminiWorker(
+                    api_key=api_key,
+                    model_name=model_name
+                )
+            else:
+                # 使用远端 Linux LLM 服务器（默认）
+                server_config = self.config.get('server', {})
+                server_url = f"http://{server_config.get('host', 'localhost')}:{server_config.get('port', 8000)}{server_config.get('endpoint', '/chat')}"
+                self.logger.info(f"使用远端 LLM 服务器: {server_url}")
+                self.network_worker = NetworkWorker(server_url=server_url)
+            
             self.network_worker.start(callback=self._on_analysis_result)
             
             # 4. 初始化报警通知器
@@ -347,8 +373,9 @@ class SmartMonitor:
                     is_danger = result.get('is_danger', False)
                     
                     if is_danger:
-                        # 危险情况：显示告警覆盖层
-                        frame = draw_alert_overlay(frame, "危险检测!", "high")
+                        # 危险情况：记录告警开始时间
+                        self.alert_display_start_time = current_time
+                        self.last_alert_result = result
                         # 保存告警图片（在触发告警前保存，确保即使冷却也会保存）
                         if self.save_alert_images:
                             self._save_alert_image(frame.copy(), result)
@@ -363,6 +390,24 @@ class SmartMonitor:
                         'reasoning': result.get('reasoning', ''),
                         'confidence': result.get('confidence', 0.5)
                     })
+                
+                # 5.5. 检查是否需要持续显示告警（在绘制其他内容之前）
+                if self.alert_display_start_time is not None:
+                    time_since_alert = current_time - self.alert_display_start_time
+                    if time_since_alert < self.alert_display_duration:
+                        # 仍在告警显示期内，继续显示告警覆盖层
+                        frame = draw_alert_overlay(frame, "危险检测!", "high")
+                        # 同时显示分析结果
+                        if self.last_alert_result:
+                            frame = draw_analysis_result(frame, {
+                                'is_danger': True,
+                                'reasoning': self.last_alert_result.get('reasoning', ''),
+                                'confidence': self.last_alert_result.get('confidence', 0.5)
+                            })
+                    else:
+                        # 告警显示时间已过，清除告警显示
+                        self.alert_display_start_time = None
+                        self.last_alert_result = None
                 
                 # 6. 绘制增强的状态信息（支持中文）
                 info_lines = [
