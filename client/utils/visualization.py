@@ -173,12 +173,12 @@ def draw_alert_overlay(
     severity: str = "high"
 ) -> np.ndarray:
     """
-    在帧上绘制报警信息（红色警示，支持中文）
+    在帧上绘制报警信息（支持不同级别，支持中文）
     
     Args:
         frame: 输入图像帧
         alert_text: 报警文本（支持中文）
-        severity: 严重程度 ("low", "medium", "high")
+        severity: 严重程度 ("low"黄色提醒, "medium"橙色警告, "high"红色危险)
         
     Returns:
         绘制后的图像帧

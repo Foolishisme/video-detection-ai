@@ -97,6 +97,28 @@ class SmartMonitor:
         # 运行标志
         self.running = False
     
+    def _get_alert_severity(self, result: Dict[str, Any]) -> str:
+        """
+        根据分析结果判断告警级别
+        
+        Args:
+            result: 分析结果字典
+            
+        Returns:
+            "high" (危险), "low" (提醒), 或 None (安全)
+        """
+        is_danger = result.get('is_danger', False)
+        if is_danger:
+            return "high"
+        
+        alert_type = result.get('alert_type', '')
+        # 检查是否是提醒类型（如垃圾、杂物等）
+        reminder_keywords = ['垃圾', '提醒', '杂物', '提醒']
+        if alert_type and any(keyword in alert_type for keyword in reminder_keywords):
+            return "low"
+        
+        return None
+    
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """加载配置文件"""
         try:
@@ -233,10 +255,21 @@ class SmartMonitor:
         self.alert_count += 1
         
         # 发送报警通知
+        alert_message = result.get('alert_message', '')
+        alert_type = result.get('alert_type', '')
         reasoning = result.get('reasoning', '检测到危险情况')
+        
+        # 生成告警描述
+        if alert_message:
+            description = alert_message
+        elif alert_type:
+            description = f"检测到{alert_type}"
+        else:
+            description = f"检测到危险情况: {reasoning}"
+        
         alert_data = {
             "rule_name": "危险动作检测",
-            "description": f"检测到危险情况: {reasoning}",
+            "description": description,
             "severity": "高",
             "location": "监控摄像头",
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
@@ -249,7 +282,7 @@ class SmartMonitor:
         if self.save_alert_images and frame is not None:
             self._save_alert_image(frame, result)
         
-        self.logger.warning(f"触发报警: {reasoning}")
+        self.logger.warning(f"触发报警: {description}")
     
     def _save_alert_image(self, frame: np.ndarray, result: Dict[str, Any], is_cooldown: bool = False):
         """
@@ -331,7 +364,7 @@ class SmartMonitor:
                     # 构造 Prompt（与服务端保持一致）
                     prompt = f"""你是一个专业的安防监控系统分析专家。监测系统检测到画面中可能发生 {AlertType.PERSON_DETECTED}。
 
-请仔细分析画面中的人物姿态和行为，判断是否存在真正的危险情况。
+请仔细分析画面中的人物姿态、行为和场景，判断具体情况并分类。
 
 判断标准：
 - SAFE（安全）的情况：
@@ -341,14 +374,21 @@ class SmartMonitor:
   * 人物正常活动，无明显异常
 
 - DANGER（危险）的情况：
-  * 人物表现出失去平衡、突然倒地
-  * 人物表现出痛苦、无法动弹
-  * 人物处于异常姿态，疑似受伤
-  * 人物行为异常，可能存在危险
+  * 人物表现出失去平衡、突然倒地 -> 类型：摔倒
+  * 人物之间发生肢体冲突、打斗 -> 类型：打架
+  * 人物表现出痛苦、无法动弹 -> 类型：受伤
+  * 人物处于异常姿态，疑似受伤 -> 类型：异常姿态
+  * 其他危险行为
+
+- REMINDER（提醒）的情况：
+  * 地上有垃圾、杂物 -> 类型：垃圾
+  * 其他需要提醒但不危险的情况
 
 请以严格的 JSON 格式返回分析结果：
 {{
     "is_danger": true/false,
+    "alert_type": "具体类型，如：打架、摔倒、垃圾、安全等（简短，2-4个字）",
+    "alert_message": "简短的告警语句（10字以内），如：'检测到打架'、'有人摔倒'、'地上有垃圾'等",
     "reasoning": "详细的分析说明，解释为什么判定为安全或危险",
     "confidence": 0.0-1.0之间的浮点数，表示判断的置信度
 }}
@@ -371,8 +411,13 @@ class SmartMonitor:
                     self.analysis_count += 1
                     self.current_status = "分析完成"
                     is_danger = result.get('is_danger', False)
+                    alert_type = result.get('alert_type', '')
+                    alert_message = result.get('alert_message', '')
                     
-                    if is_danger:
+                    # 判断告警级别
+                    severity = self._get_alert_severity(result)
+                    
+                    if severity == "high":
                         # 危险情况：记录告警开始时间
                         self.alert_display_start_time = current_time
                         self.last_alert_result = result
@@ -382,6 +427,11 @@ class SmartMonitor:
                         # 触发告警（会检查冷却时间）
                         self._trigger_alert(result, frame)
                         self.current_status = "危险告警!"
+                    elif severity == "low":
+                        # 提醒类型，显示黄色提醒
+                        self.alert_display_start_time = current_time
+                        self.last_alert_result = result
+                        self.current_status = "提醒"
                     else:
                         self.current_status = "安全"
                     
@@ -396,11 +446,24 @@ class SmartMonitor:
                     time_since_alert = current_time - self.alert_display_start_time
                     if time_since_alert < self.alert_display_duration:
                         # 仍在告警显示期内，继续显示告警覆盖层
-                        frame = draw_alert_overlay(frame, "危险检测!", "high")
-                        # 同时显示分析结果
                         if self.last_alert_result:
+                            alert_type = self.last_alert_result.get('alert_type', '')
+                            alert_message = self.last_alert_result.get('alert_message', '')
+                            severity = self._get_alert_severity(self.last_alert_result)
+                            
+                            # 根据告警级别确定显示文本和颜色
+                            if severity == "high":
+                                # 危险情况：红色警告
+                                display_text = alert_message if alert_message else (f"警告：{alert_type}" if alert_type else "危险检测!")
+                                frame = draw_alert_overlay(frame, display_text, severity="high")
+                            elif severity == "low":
+                                # 提醒情况：黄色提醒
+                                display_text = alert_message if alert_message else (f"提醒：{alert_type}" if alert_type else "提醒")
+                                frame = draw_alert_overlay(frame, display_text, severity="low")
+                            
+                            # 同时显示分析结果
                             frame = draw_analysis_result(frame, {
-                                'is_danger': True,
+                                'is_danger': self.last_alert_result.get('is_danger', False),
                                 'reasoning': self.last_alert_result.get('reasoning', ''),
                                 'confidence': self.last_alert_result.get('confidence', 0.5)
                             })

@@ -141,6 +141,8 @@ class NetworkWorker:
         result = {
             "raw_response": response_text,
             "is_danger": False,
+            "alert_type": "",
+            "alert_message": "",
             "reasoning": "",
             "confidence": 0.5
         }
@@ -168,6 +170,8 @@ class NetworkWorker:
                 
                 # 提取字段
                 result["is_danger"] = bool(json_data.get("is_danger", False))
+                result["alert_type"] = str(json_data.get("alert_type", ""))
+                result["alert_message"] = str(json_data.get("alert_message", ""))
                 result["reasoning"] = str(json_data.get("reasoning", ""))
                 result["confidence"] = float(json_data.get("confidence", 0.5))
                 result["confidence"] = max(0.0, min(1.0, result["confidence"]))
