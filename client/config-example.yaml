@@ -31,12 +31,18 @@ thresholds:
   # 宽高比阈值（判断是否横躺）- 保留用于未来扩展
   aspect_ratio: 1.2
 
+# Web服务配置
+web_server:
+  host: "0.0.0.0"  # "127.0.0.1" 仅本地访问，"0.0.0.0" 允许外部访问
+  port: 8123
+
 # 视频源配置
 video:
   # source 可以是：
   # - 数字（如 0, 1）：摄像头索引，0 为默认摄像头
   # - 字符串（如 "test_video.mp4"）：视频文件路径（相对于项目根目录或绝对路径）
-  source: 0  # 示例：0（摄像头）或 "test_video.mp4"（视频文件）
+  # - RTSP URL（如 "rtsp://user:pass@ip:port/stream"）：外置摄像头RTSP流
+  source: 0  # 示例：0（摄像头）或 "rtsp://normal:jU8azeo34@192.168.2.7:554/stream1"
   fps: 30
   width: 640
   height: 480

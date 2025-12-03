@@ -131,15 +131,21 @@ class MonitorService:
             source = video_config.get('source', 0)
             
             if isinstance(source, str):
-                source_path = Path(source)
-                if not source_path.is_absolute():
-                    source_path = project_root / source
-                
-                if not source_path.exists():
-                    logger.error(f"视频文件不存在: {source_path}")
-                    return False
-                
-                source = str(source_path)
+                # 检查是否是 RTSP URL
+                if source.startswith('rtsp://'):
+                    # RTSP URL，直接使用
+                    logger.info(f"检测到 RTSP 视频源: {source}")
+                else:
+                    # 假设是文件路径，检查文件是否存在
+                    source_path = Path(source)
+                    if not source_path.is_absolute():
+                        source_path = project_root / source
+                    
+                    if not source_path.exists():
+                        logger.error(f"视频文件不存在: {source_path}")
+                        return False
+                    
+                    source = str(source_path)
             
             target_fps = video_config.get('target_fps', 0)
             
@@ -363,25 +369,25 @@ class MonitorService:
                     
                     self.last_analysis_result = result
                 
-                # 5. 绘制信息覆盖层
-                info_lines = [
-                    f"帧率: {self.current_fps:.1f} FPS",
-                    f"状态: {self.current_status}",
-                    f"告警次数: {self.alert_count}",
-                    f"分析次数: {self.analysis_count}",
-                ]
-                if has_person:
-                    info_lines.append(f"检测到人数: {len(detections)}")
+                # 5. 绘制信息覆盖层（已移除，避免与状态栏信息重叠）
+                # info_lines = [
+                #     f"帧率: {self.current_fps:.1f} FPS",
+                #     f"状态: {self.current_status}",
+                #     f"告警次数: {self.alert_count}",
+                #     f"分析次数: {self.analysis_count}",
+                # ]
+                # if has_person:
+                #     info_lines.append(f"检测到人数: {len(detections)}")
+                # 
+                # frame = draw_enhanced_overlay(frame, info_lines, position=(10, 30))
                 
-                frame = draw_enhanced_overlay(frame, info_lines, position=(10, 30))
-                
-                # 如果有告警，绘制告警覆盖层
-                if self.last_analysis_result:
-                    severity = self._get_alert_severity(self.last_analysis_result)
-                    if severity:
-                        alert_message = self.last_analysis_result.get('alert_message', '')
-                        if alert_message:
-                            frame = draw_alert_overlay(frame, alert_message, severity=severity)
+                # 如果有告警，绘制告警覆盖层（已移除，避免与状态栏信息重叠）
+                # if self.last_analysis_result:
+                #     severity = self._get_alert_severity(self.last_analysis_result)
+                #     if severity:
+                #         alert_message = self.last_analysis_result.get('alert_message', '')
+                #         if alert_message:
+                #             frame = draw_alert_overlay(frame, alert_message, severity=severity)
                 
                 # 6. 更新当前帧（用于视频流）
                 with self.frame_lock:

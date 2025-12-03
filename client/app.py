@@ -158,18 +158,25 @@ class SmartMonitor:
             
             # 如果 source 是字符串，检查文件是否存在
             if isinstance(source, str):
-                source_path = Path(source)
-                if not source_path.is_absolute():
-                    # 相对路径，从项目根目录查找
-                    source_path = project_root / source
-                
-                if not source_path.exists():
-                    self.logger.error(f"视频文件不存在: {source_path}")
-                    self.logger.info("提示：请将视频文件放在项目根目录，或在配置中使用绝对路径")
-                    return False
-                
-                source = str(source_path)
-                self.logger.info(f"使用视频文件作为输入源: {source}")
+                # **添加RTSP URL识别**
+                if source.startswith('rtsp://'):
+                    self.logger.info(f"使用RTSP流作为输入源: {source}")
+                    # 对密码进行掩码处理，避免日志泄露
+                    masked_url = source.replace(source[source.find('://')+3:source.rfind('@')], '***')
+                    self.logger.info(f"RTSP URL（已掩码）: {masked_url}")
+                else:
+                    # 原有文件路径处理逻辑
+                    source_path = Path(source)
+                    if not source_path.is_absolute():
+                        source_path = project_root / source
+                    
+                    if not source_path.exists():
+                        self.logger.error(f"视频文件不存在: {source_path}")
+                        self.logger.info("提示：请将视频文件放在项目根目录，或在配置中使用绝对路径")
+                        return False
+                    
+                    source = str(source_path)
+                    self.logger.info(f"使用视频文件作为输入源: {source}")
             
             # 获取目标帧率（用于视频文件播放速度控制）
             target_fps = video_config.get('target_fps', 0)  # 0表示不控制速度

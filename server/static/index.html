@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartMonitor Dashboard</title>
+    <title>智能监控系统</title>
     <style>
         * {
             margin: 0;
@@ -31,7 +31,7 @@
 
         .dashboard {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 2fr 1fr;
             grid-template-rows: auto auto;
             gap: 20px;
         }
@@ -57,8 +57,8 @@
         }
 
         .alert-log-panel {
-            grid-column: 2;
-            grid-row: 1;
+            grid-column: 1;
+            grid-row: 2;
         }
 
         .alert-detail-panel {
@@ -67,8 +67,8 @@
         }
 
         .stats-panel {
-            grid-column: 1;
-            grid-row: 2;
+            grid-column: 2;
+            grid-row: 1;
         }
 
         #videoFeed {
@@ -243,26 +243,57 @@
 </head>
 <body>
     <div class="container">
-        <h1>SmartMonitor Dashboard</h1>
+        <h1>智能监控系统</h1>
         
         <div class="dashboard">
             <!-- Live Camera Feed Panel -->
             <div class="panel video-panel">
-                <h2>Live Camera Feed (MJPEG Stream)</h2>
+                <h2>实时监控画面</h2>
                 <div>
                     <span class="status-indicator status-active" id="aiStatus"></span>
-                    <span id="aiStatusText">AI: Monitoring (Safe)</span>
+                    <span id="aiStatusText">AI: 监控中（安全）</span>
                 </div>
-                <img id="videoFeed" src="/video_feed" alt="Video Feed">
+                <img id="videoFeed" src="/video_feed" alt="视频流">
                 <div style="margin-top: 10px;">
                     <span class="status-indicator status-active" id="connectionStatus"></span>
-                    <span>Connection Status: <span id="connectionStatusText">Active</span></span>
+                    <span>连接状态: <span id="connectionStatusText">已连接</span></span>
+                </div>
+            </div>
+
+            <!-- System Stats Panel -->
+            <div class="panel stats-panel">
+                <h2>系统状态</h2>
+                <div class="stats-content" id="systemStats">
+                    <div class="stat-item">
+                        <span class="stat-label">帧率:</span>
+                        <span class="stat-value" id="fpsValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">延迟:</span>
+                        <span class="stat-value" id="latencyValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">后端:</span>
+                        <span class="stat-value" id="backendValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">状态:</span>
+                        <span class="stat-value" id="statusValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">告警次数:</span>
+                        <span class="stat-value" id="alertCountValue">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">分析次数:</span>
+                        <span class="stat-value" id="analysisCountValue">0</span>
+                    </div>
                 </div>
             </div>
 
             <!-- Alert Log Panel -->
             <div class="panel alert-log-panel">
-                <h2>Alert Log (Real-time)</h2>
+                <h2>告警日志（实时）</h2>
                 <div class="alert-list" id="alertList">
                     <div class="empty-state">暂无告警</div>
                 </div>
@@ -270,40 +301,9 @@
 
             <!-- Selected Alert Details Panel -->
             <div class="panel alert-detail-panel">
-                <h2>Selected Alert Details & Image</h2>
+                <h2>告警详情与图像</h2>
                 <div class="alert-detail-content" id="alertDetail">
                     <div class="empty-state">点击告警列表中的条目查看详情</div>
-                </div>
-            </div>
-
-            <!-- System Stats Panel -->
-            <div class="panel stats-panel">
-                <h2>System Stats</h2>
-                <div class="stats-content" id="systemStats">
-                    <div class="stat-item">
-                        <span class="stat-label">FPS:</span>
-                        <span class="stat-value" id="fpsValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Latency:</span>
-                        <span class="stat-value" id="latencyValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Backend:</span>
-                        <span class="stat-value" id="backendValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Status:</span>
-                        <span class="stat-value" id="statusValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Alert Count:</span>
-                        <span class="stat-value" id="alertCountValue">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Analysis Count:</span>
-                        <span class="stat-value" id="analysisCountValue">0</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -328,16 +328,16 @@
                 
                 alertList.innerHTML = alerts.map(alert => {
                     const severityClass = alert.severity || 'safe';
-                    const severityText = alert.severity === 'high' ? 'High' : 
-                                        alert.severity === 'low' ? 'Low' : 'Safe';
+                    const severityText = alert.severity === 'high' ? '高' : 
+                                        alert.severity === 'low' ? '低' : '安全';
                     const isSelected = selectedAlertId === alert.id ? 'selected' : '';
                     
                     return `
                         <div class="alert-item ${severityClass} ${isSelected}" onclick="selectAlert(${alert.id})">
                             <span class="alert-time">${alert.timestamp}</span>
-                            <span class="alert-type">${alert.type || 'Unknown'}</span>
+                            <span class="alert-type">${alert.type || '未知'}</span>
                             <span class="alert-severity severity-${severityClass}">${severityText}</span>
-                            <a href="#" class="view-btn" onclick="event.stopPropagation(); selectAlert(${alert.id}); return false;">[View]</a>
+                            <a href="#" class="view-btn" onclick="event.stopPropagation(); selectAlert(${alert.id}); return false;">[查看]</a>
                         </div>
                     `;
                 }).join('');
@@ -361,32 +361,32 @@
                 }
                 
                 const imageUrl = alert.image_path ? `/api/alerts/${alertId}/image` : '';
-                const severityText = alert.severity === 'high' ? 'High (Red)' : 
-                                    alert.severity === 'low' ? 'Low (Yellow)' : 'Safe (Green)';
+                const severityText = alert.severity === 'high' ? '高（红色）' : 
+                                    alert.severity === 'low' ? '低（黄色）' : '安全（绿色）';
                 
                 document.getElementById('alertDetail').innerHTML = `
-                    ${imageUrl ? `<img src="${imageUrl}" alt="Alert Image" class="alert-image">` : ''}
+                    ${imageUrl ? `<img src="${imageUrl}" alt="告警图像" class="alert-image">` : ''}
                     <div class="detail-item">
-                        <span class="detail-label">Type:</span>
-                        <span class="detail-value">${alert.type || 'Unknown'}</span>
+                        <span class="detail-label">类型:</span>
+                        <span class="detail-value">${alert.type || '未知'}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Severity:</span>
+                        <span class="detail-label">严重程度:</span>
                         <span class="detail-value">${severityText}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Message:</span>
-                        <span class="detail-value">${alert.message || 'N/A'}</span>
+                        <span class="detail-label">消息:</span>
+                        <span class="detail-value">${alert.message || '无'}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Reasoning:</span>
-                        <span class="detail-value">${alert.reasoning || 'N/A'}</span>
+                        <span class="detail-label">分析说明:</span>
+                        <span class="detail-value">${alert.reasoning || '无'}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Confidence:</span>
+                        <span class="detail-label">置信度:</span>
                         <span class="detail-value">${(alert.confidence * 100).toFixed(1)}%</span>
                     </div>
-                    <button class="acknowledge-btn" onclick="acknowledgeAlert(${alertId})">Acknowledge</button>
+                    <button class="acknowledge-btn" onclick="acknowledgeAlert(${alertId})">确认</button>
                 `;
                 
                 // 更新选中状态
@@ -411,7 +411,7 @@
                 if (status.error) {
                     document.getElementById('fpsValue').textContent = '--';
                     document.getElementById('latencyValue').textContent = '--';
-                    document.getElementById('backendValue').textContent = 'Disconnected';
+                    document.getElementById('backendValue').textContent = '未连接';
                     document.getElementById('statusValue').textContent = '--';
                     document.getElementById('alertCountValue').textContent = '0';
                     document.getElementById('analysisCountValue').textContent = '0';
@@ -420,13 +420,13 @@
                     const connectionStatus = document.getElementById('connectionStatus');
                     const connectionStatusText = document.getElementById('connectionStatusText');
                     connectionStatus.className = 'status-indicator status-inactive';
-                    connectionStatusText.textContent = 'Inactive';
+                    connectionStatusText.textContent = '未激活';
                     return;
                 }
                 
                 document.getElementById('fpsValue').textContent = status.fps || '--';
                 document.getElementById('latencyValue').textContent = '150ms'; // 固定值，实际可以从后端获取
-                document.getElementById('backendValue').textContent = status.connection_status || 'Unknown';
+                document.getElementById('backendValue').textContent = status.connection_status === 'Active' ? '已激活' : '未激活';
                 document.getElementById('statusValue').textContent = status.status || '--';
                 document.getElementById('alertCountValue').textContent = status.alert_count || 0;
                 document.getElementById('analysisCountValue').textContent = status.analysis_count || 0;
@@ -436,10 +436,10 @@
                 const aiStatusText = document.getElementById('aiStatusText');
                 if (status.connection_status === 'Active') {
                     aiStatus.className = 'status-indicator status-active';
-                    aiStatusText.textContent = `AI: ${status.status || 'Monitoring'}`;
+                    aiStatusText.textContent = `AI: ${status.status || '监控中'}`;
                 } else {
                     aiStatus.className = 'status-indicator status-inactive';
-                    aiStatusText.textContent = 'AI: Disconnected';
+                    aiStatusText.textContent = 'AI: 未连接';
                 }
                 
                 // 更新连接状态指示器
@@ -447,10 +447,10 @@
                 const connectionStatusText = document.getElementById('connectionStatusText');
                 if (status.connection_status === 'Active') {
                     connectionStatus.className = 'status-indicator status-active';
-                    connectionStatusText.textContent = 'Active';
+                    connectionStatusText.textContent = '已连接';
                 } else {
                     connectionStatus.className = 'status-indicator status-inactive';
-                    connectionStatusText.textContent = 'Inactive';
+                    connectionStatusText.textContent = '未连接';
                 }
             } catch (error) {
                 console.error('Failed to fetch status:', error);
