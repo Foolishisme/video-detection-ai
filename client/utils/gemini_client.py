@@ -120,15 +120,35 @@ class GeminiWorker:
                 # 处理图像和调用 API
                 try:
                     self.logger.info("发送请求到 Gemini API...")
+                    self.logger.debug(f"使用模型: {self.model_name}, 查询长度: {len(query)}")
                     
                     # 压缩图像并转换为 PIL Image
                     pil_image = self._frame_to_pil_image(frame)
+                    self.logger.debug(f"图像已处理，尺寸: {pil_image.size}")
                     
                     # 调用 Gemini API
+                    self.logger.info("正在调用 Gemini API，请稍候...")
                     response = self.model.generate_content([query, pil_image])
                     
+                    # 检查响应
+                    if not response:
+                        raise ValueError("Gemini API 返回空响应")
+                    
                     # 获取响应文本
-                    response_text = response.text if response.text else ""
+                    response_text = response.text if hasattr(response, 'text') and response.text else ""
+                    
+                    if not response_text:
+                        # 检查是否有候选响应
+                        if hasattr(response, 'candidates') and response.candidates:
+                            candidate = response.candidates[0]
+                            if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
+                                response_text = ''.join([part.text for part in candidate.content.parts if hasattr(part, 'text')])
+                        
+                        if not response_text:
+                            raise ValueError("Gemini API 返回的响应中没有文本内容")
+                    
+                    self.logger.info(f"收到 Gemini API 响应，长度: {len(response_text)} 字符")
+                    self.logger.debug(f"响应内容预览: {response_text[:200]}...")
                     
                     # 解析响应
                     parsed_result = self._parse_response(response_text)
@@ -140,20 +160,40 @@ class GeminiWorker:
                     if self.callback:
                         self.callback(parsed_result)
                     
-                    self.logger.info(f"Gemini API 分析完成: {parsed_result}")
+                    self.logger.info(f"Gemini API 分析完成: is_danger={parsed_result.get('is_danger')}, alert_type={parsed_result.get('alert_type')}")
                     
                 except Exception as e:
-                    self.logger.error(f"Gemini API 调用失败: {e}", exc_info=True)
-                    # 可以放入错误结果
+                    error_msg = str(e)
+                    self.logger.error(f"Gemini API 调用失败: {error_msg}", exc_info=True)
+                    
+                    # 详细错误信息
+                    if "API_KEY" in error_msg.upper() or "api key" in error_msg.lower():
+                        error_msg = "API Key 无效或未设置，请检查配置"
+                    elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
+                        error_msg = "API 配额已用完或达到限制"
+                    elif "timeout" in error_msg.lower():
+                        error_msg = "API 请求超时，请检查网络连接"
+                    
+                    # 放入错误结果
                     error_result = {
-                        "raw_response": f"API 调用失败: {str(e)}",
+                        "raw_response": f"API 调用失败: {error_msg}",
                         "is_danger": False,
-                        "reasoning": f"API 调用出错: {str(e)}",
+                        "alert_type": "错误",
+                        "alert_message": "API调用失败",
+                        "reasoning": f"Gemini API 调用出错: {error_msg}",
                         "confidence": 0.0
                     }
                     self.result_queue.put(error_result)
                     if self.callback:
                         self.callback(error_result)
+                    
+                    # 打印到控制台以便用户看到
+                    print(f"\n[错误] Gemini API 调用失败: {error_msg}")
+                    print("请检查:")
+                    print("1. API Key 是否正确配置")
+                    print("2. 网络连接是否正常")
+                    print("3. API 配额是否充足")
+                    print("4. 查看日志获取详细错误信息\n")
                     
             except queue.Empty:
                 continue

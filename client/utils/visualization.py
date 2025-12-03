@@ -83,20 +83,39 @@ def _get_chinese_font(size: int = 20):
     Returns:
         PIL ImageFont 对象，如果找不到中文字体则返回默认字体
     """
-    # 尝试使用系统中文字体
+    # 尝试使用系统中文字体（Mac字体路径优先，因为Mac字体路径更可靠）
     font_paths = [
+        # macOS 中文字体（按优先级排序）
+        "/System/Library/Fonts/STHeiti Medium.ttc",  # 黑体-中
+        "/System/Library/Fonts/STHeiti Light.ttc",  # 黑体-细
+        "/Library/Fonts/Arial Unicode.ttf",  # Arial Unicode（支持中文）
+        "/System/Library/Fonts/Supplemental/Songti.ttc",  # 宋体
+        "/System/Library/Fonts/PingFang.ttc",  # 苹方（如果存在）
+        "/System/Library/Fonts/Supplemental/PingFang.ttc",  # 苹方补充字体
+        # Windows 中文字体
         "C:/Windows/Fonts/simhei.ttf",  # 黑体
         "C:/Windows/Fonts/simsun.ttc",  # 宋体
         "C:/Windows/Fonts/msyh.ttc",    # 微软雅黑
-        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # Linux
-        "/System/Library/Fonts/PingFang.ttc",  # macOS
+        # Linux 中文字体
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",  # 文泉驿微米黑
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",    # 文泉驿正黑
     ]
     
     for font_path in font_paths:
         if os.path.exists(font_path):
             try:
-                return ImageFont.truetype(font_path, size)
-            except Exception:
+                font = ImageFont.truetype(font_path, size)
+                # 测试字体是否支持中文（尝试渲染一个中文字符）
+                try:
+                    from PIL import Image, ImageDraw
+                    test_img = Image.new('RGB', (100, 100), color='white')
+                    test_draw = ImageDraw.Draw(test_img)
+                    test_draw.text((0, 0), "测试", font=font)
+                    return font
+                except Exception:
+                    # 如果测试失败，仍然返回字体（可能在某些系统上测试会失败）
+                    return font
+            except Exception as e:
                 continue
     
     # 如果找不到中文字体，返回默认字体（可能不支持中文）

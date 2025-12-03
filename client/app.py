@@ -198,9 +198,24 @@ class SmartMonitor:
                 # 使用 Gemini API
                 gemini_config = self.config.get('gemini', {})
                 api_key = gemini_config.get('api_key')  # 如果配置中有，优先使用
+                
+                # 如果配置中的api_key是占位符，尝试从环境变量获取
+                if not api_key or api_key == "your-api-key" or api_key.strip() == "":
+                    import os
+                    api_key = os.getenv("GEMINI_API_KEY")
+                    if api_key:
+                        self.logger.info("从环境变量获取 Gemini API Key")
+                    else:
+                        self.logger.warning("Gemini API Key 未配置！请在 config.yaml 中设置或设置环境变量 GEMINI_API_KEY")
+                
                 model_name = gemini_config.get('model_name', 'gemini-2.0-flash-exp')
                 
                 self.logger.info(f"使用 Gemini API，模型: {model_name}")
+                if api_key and api_key != "your-api-key":
+                    self.logger.info("API Key 已配置（已隐藏）")
+                else:
+                    self.logger.error("API Key 未正确配置，Gemini API 调用将失败")
+                
                 self.network_worker = GeminiWorker(
                     api_key=api_key,
                     model_name=model_name

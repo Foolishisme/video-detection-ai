@@ -1,20 +1,26 @@
-# Windows 客户端依赖
-# 视频处理和显示
+# 智能监控系统客户端依赖
+# Python 3.10+
+
+# 视频处理
 opencv-python>=4.8.0
 
-# AI 模型
+# YOLO 检测
 ultralytics>=8.0.0
 
 # HTTP 客户端
 requests>=2.31.0
 
-# 配置管理
+# 配置文件解析
 pyyaml>=6.0
 
-# 数据处理
-numpy>=1.24.0
+# 数据验证
 pydantic>=2.0.0
 
-# 图像处理（用于压缩）
+# 数值计算
+numpy>=1.24.0
+
+# 图像处理
 pillow>=10.0.0
 
+# Google Gemini API (可选，如果使用Gemini)
+google-generativeai>=0.3.0

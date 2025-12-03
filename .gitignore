@@ -12,3 +12,7 @@ __pycache__/
 *.pyzwzwz
 *.pyzwzwzw
 *.pyzwzwzwz
+*.md
+!README.md
+.cursorignore
+.cursorruless
