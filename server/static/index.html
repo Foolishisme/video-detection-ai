@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartMonitor Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .video-panel {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .alert-log-panel {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .alert-detail-panel {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        .stats-panel {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #videoFeed {
+            width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            background: #000;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background-color: #4CAF50;
+        }
+
+        .status-inactive {
+            background-color: #f44336;
+        }
+
+        .alert-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .alert-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .alert-item.selected {
+            background-color: #e3f2fd;
+            border-left-color: #2196F3;
+        }
+
+        .alert-item.high {
+            border-left-color: #f44336;
+        }
+
+        .alert-item.low {
+            border-left-color: #ff9800;
+        }
+
+        .alert-item.safe {
+            border-left-color: #4CAF50;
+        }
+
+        .alert-time {
+            font-size: 12px;
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .alert-type {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .alert-severity {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .severity-high {
+            background-color: #f44336;
+            color: white;
+        }
+
+        .severity-low {
+            background-color: #ff9800;
+            color: white;
+        }
+
+        .severity-safe {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .view-btn {
+            color: #2196F3;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .alert-detail-content {
+            min-height: 300px;
+        }
+
+        .alert-image {
+            width: 100%;
+            max-width: 500px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .detail-item {
+            margin-bottom: 10px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .acknowledge-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+
+        .acknowledge-btn:hover {
+            background-color: #45a049;
+        }
+
+        .stats-content {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SmartMonitor Dashboard</h1>
+        
+        <div class="dashboard">
+            <!-- Live Camera Feed Panel -->
+            <div class="panel video-panel">
+                <h2>Live Camera Feed (MJPEG Stream)</h2>
+                <div>
+                    <span class="status-indicator status-active" id="aiStatus"></span>
+                    <span id="aiStatusText">AI: Monitoring (Safe)</span>
+                </div>
+                <img id="videoFeed" src="/video_feed" alt="Video Feed">
+                <div style="margin-top: 10px;">
+                    <span class="status-indicator status-active" id="connectionStatus"></span>
+                    <span>Connection Status: <span id="connectionStatusText">Active</span></span>
+                </div>
+            </div>
+
+            <!-- Alert Log Panel -->
+            <div class="panel alert-log-panel">
+                <h2>Alert Log (Real-time)</h2>
+                <div class="alert-list" id="alertList">
+                    <div class="empty-state">暂无告警</div>
+                </div>
+            </div>
+
+            <!-- Selected Alert Details Panel -->
+            <div class="panel alert-detail-panel">
+                <h2>Selected Alert Details & Image</h2>
+                <div class="alert-detail-content" id="alertDetail">
+                    <div class="empty-state">点击告警列表中的条目查看详情</div>
+                </div>
+            </div>
+
+            <!-- System Stats Panel -->
+            <div class="panel stats-panel">
+                <h2>System Stats</h2>
+                <div class="stats-content" id="systemStats">
+                    <div class="stat-item">
+                        <span class="stat-label">FPS:</span>
+                        <span class="stat-value" id="fpsValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Latency:</span>
+                        <span class="stat-value" id="latencyValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Backend:</span>
+                        <span class="stat-value" id="backendValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span class="stat-value" id="statusValue">--</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Alert Count:</span>
+                        <span class="stat-value" id="alertCountValue">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Analysis Count:</span>
+                        <span class="stat-value" id="analysisCountValue">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedAlertId = null;
+
+        // 更新告警列表
+        async function updateAlerts() {
+            try {
+                const response = await fetch('/api/alerts');
+                const data = await response.json();
+                const alerts = data.alerts || [];
+                
+                const alertList = document.getElementById('alertList');
+                
+                if (alerts.length === 0) {
+                    alertList.innerHTML = '<div class="empty-state">暂无告警</div>';
+                    return;
+                }
+                
+                alertList.innerHTML = alerts.map(alert => {
+                    const severityClass = alert.severity || 'safe';
+                    const severityText = alert.severity === 'high' ? 'High' : 
+                                        alert.severity === 'low' ? 'Low' : 'Safe';
+                    const isSelected = selectedAlertId === alert.id ? 'selected' : '';
+                    
+                    return `
+                        <div class="alert-item ${severityClass} ${isSelected}" onclick="selectAlert(${alert.id})">
+                            <span class="alert-time">${alert.timestamp}</span>
+                            <span class="alert-type">${alert.type || 'Unknown'}</span>
+                            <span class="alert-severity severity-${severityClass}">${severityText}</span>
+                            <a href="#" class="view-btn" onclick="event.stopPropagation(); selectAlert(${alert.id}); return false;">[View]</a>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to fetch alerts:', error);
+            }
+        }
+
+        // 选择告警
+        async function selectAlert(alertId) {
+            selectedAlertId = alertId;
+            
+            try {
+                const response = await fetch(`/api/alerts/${alertId}`);
+                const alert = await response.json();
+                
+                if (alert.error) {
+                    document.getElementById('alertDetail').innerHTML = 
+                        `<div class="empty-state">${alert.error}</div>`;
+                    return;
+                }
+                
+                const imageUrl = alert.image_path ? `/api/alerts/${alertId}/image` : '';
+                const severityText = alert.severity === 'high' ? 'High (Red)' : 
+                                    alert.severity === 'low' ? 'Low (Yellow)' : 'Safe (Green)';
+                
+                document.getElementById('alertDetail').innerHTML = `
+                    ${imageUrl ? `<img src="${imageUrl}" alt="Alert Image" class="alert-image">` : ''}
+                    <div class="detail-item">
+                        <span class="detail-label">Type:</span>
+                        <span class="detail-value">${alert.type || 'Unknown'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Severity:</span>
+                        <span class="detail-value">${severityText}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Message:</span>
+                        <span class="detail-value">${alert.message || 'N/A'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Reasoning:</span>
+                        <span class="detail-value">${alert.reasoning || 'N/A'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Confidence:</span>
+                        <span class="detail-value">${(alert.confidence * 100).toFixed(1)}%</span>
+                    </div>
+                    <button class="acknowledge-btn" onclick="acknowledgeAlert(${alertId})">Acknowledge</button>
+                `;
+                
+                // 更新选中状态
+                updateAlerts();
+            } catch (error) {
+                console.error('Failed to fetch alert detail:', error);
+            }
+        }
+
+        // 确认告警
+        function acknowledgeAlert(alertId) {
+            alert(`告警 ${alertId} 已确认`);
+            // 这里可以添加确认逻辑
+        }
+
+        // 更新系统状态
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const status = await response.json();
+                
+                if (status.error) {
+                    document.getElementById('fpsValue').textContent = '--';
+                    document.getElementById('latencyValue').textContent = '--';
+                    document.getElementById('backendValue').textContent = 'Disconnected';
+                    document.getElementById('statusValue').textContent = '--';
+                    document.getElementById('alertCountValue').textContent = '0';
+                    document.getElementById('analysisCountValue').textContent = '0';
+                    
+                    // 更新连接状态指示器
+                    const connectionStatus = document.getElementById('connectionStatus');
+                    const connectionStatusText = document.getElementById('connectionStatusText');
+                    connectionStatus.className = 'status-indicator status-inactive';
+                    connectionStatusText.textContent = 'Inactive';
+                    return;
+                }
+                
+                document.getElementById('fpsValue').textContent = status.fps || '--';
+                document.getElementById('latencyValue').textContent = '150ms'; // 固定值，实际可以从后端获取
+                document.getElementById('backendValue').textContent = status.connection_status || 'Unknown';
+                document.getElementById('statusValue').textContent = status.status || '--';
+                document.getElementById('alertCountValue').textContent = status.alert_count || 0;
+                document.getElementById('analysisCountValue').textContent = status.analysis_count || 0;
+                
+                // 更新AI状态
+                const aiStatus = document.getElementById('aiStatus');
+                const aiStatusText = document.getElementById('aiStatusText');
+                if (status.connection_status === 'Active') {
+                    aiStatus.className = 'status-indicator status-active';
+                    aiStatusText.textContent = `AI: ${status.status || 'Monitoring'}`;
+                } else {
+                    aiStatus.className = 'status-indicator status-inactive';
+                    aiStatusText.textContent = 'AI: Disconnected';
+                }
+                
+                // 更新连接状态指示器
+                const connectionStatus = document.getElementById('connectionStatus');
+                const connectionStatusText = document.getElementById('connectionStatusText');
+                if (status.connection_status === 'Active') {
+                    connectionStatus.className = 'status-indicator status-active';
+                    connectionStatusText.textContent = 'Active';
+                } else {
+                    connectionStatus.className = 'status-indicator status-inactive';
+                    connectionStatusText.textContent = 'Inactive';
+                }
+            } catch (error) {
+                console.error('Failed to fetch status:', error);
+            }
+        }
+
+        // 初始化
+        updateAlerts();
+        updateStatus();
+
+        // 定时更新
+        setInterval(updateAlerts, 2000); // 每2秒更新告警列表
+        setInterval(updateStatus, 1000); // 每1秒更新系统状态
+    </script>
+</body>
+</html>
+

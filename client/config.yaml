@@ -34,7 +34,7 @@ video:
   # source 可以是：
   # - 数字（如 0, 1）：摄像头索引，0 为默认摄像头
   # - 字符串（如 "test_video.mp4"）：视频文件路径（相对于项目根目录或绝对路径）
-  source:  "rubbish.mp4" #0 # 111.mp4  # 示例：0（摄像头）或 "test_video.mp4"（视频文件）
+  source: "rubbish.mp4" #0 # 111.mp4  # 示例：0（摄像头）或 "test_video.mp4"（视频文件）
   fps: 30
   width: 640
   height: 480

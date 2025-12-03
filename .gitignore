@@ -1,5 +1,6 @@
 alerts/
 __pycache__/
+
 *.pyc
 *.pyo
 *.pyd
@@ -16,3 +17,4 @@ __pycache__/
 !README.md
 .cursorignore
 .cursorruless
+

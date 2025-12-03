@@ -29,6 +29,5 @@ requirements*.txt
 package-lock.json
 yarn.lock
 alerts/
-server/
 *.md
 !README.md
