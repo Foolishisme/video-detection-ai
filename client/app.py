@@ -32,7 +32,7 @@ from client.utils.visualization import (
     draw_analysis_result,
     draw_enhanced_overlay
 )
-from core_extracted import AlertNotifier
+from shared.notifier import AlertNotifier
 from shared.schemas import AlertType
 
 
@@ -540,12 +540,6 @@ class SmartMonitor:
 
 def main():
     """主函数入口"""
-    # 检查core_extracted.py是否存在
-    if not os.path.exists('core_extracted.py'):
-        print("错误: 未找到 core_extracted.py 文件")
-        print("请确保 core_extracted.py 文件在项目根目录下")
-        return
-    
     # 创建监控系统实例
     monitor = SmartMonitor()
     

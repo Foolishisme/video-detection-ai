@@ -73,8 +73,9 @@ SmartMonitor/
 ├── client/                     # 客户端（本地桌面应用）
 │   ├── app.py                  # 桌面应用主程序入口
 │   ├── core/
+│   │   ├── camera.py           # 摄像头连接模块
 │   │   ├── pipeline.py         # 视频流采集线程
-│   │   ├── detector.py          # YOLO 检测器
+│   │   ├── detector.py         # YOLO 检测器
 │   │   └── rules.py            # 规则引擎（预留）
 │   ├── utils/
 │   │   ├── api_client.py       # HTTP 客户端（异步）
@@ -83,17 +84,18 @@ SmartMonitor/
 │   ├── config.yaml             # 客户端配置
 │   └── README.md               # 客户端使用说明
 │
-├── server/                     # Web 后端服务 ⭐ 新增
+├── server/                     # Web 后端服务
 │   ├── app.py                  # FastAPI 后端服务
+│   ├── start.py                # Web 服务启动脚本
 │   ├── static/
 │   │   └── index.html          # Web 前端页面
-│   └── __init__.py
+│   └── README.md               # 服务端使用说明
 │
-├── shared/                     # 共享数据模型
-│   └── schemas.py              # Pydantic 数据模型
+├── shared/                     # 共享模块
+│   ├── schemas.py              # Pydantic 数据模型
+│   └── notifier.py             # 报警通知模块
 │
-├── core_extracted.py           # 核心功能模块（摄像头、报警）
-├── start_server.py             # Web 服务启动脚本 ⭐ 新增
+├── alerts/                     # 告警图片存储目录
 ├── requirements-client.txt     # 客户端依赖
 ├── requirements-server.txt     # 服务端依赖（参考）
 └── README.md                   # 本文件
@@ -170,7 +172,14 @@ gemini:
 #### 3. 启动 Web 服务
 
 ```bash
-python start_server.py
+python server/start.py
+```
+
+或者从项目根目录运行：
+
+```bash
+cd server
+python start.py
 ```
 
 #### 4. 访问 Web 界面

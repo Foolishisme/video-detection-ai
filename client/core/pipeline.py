@@ -12,11 +12,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
-# 添加项目根目录到路径，以便导入core_extracted
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from core_extracted import CameraConnector
+from client.core.camera import CameraConnector
 
 
 class VideoPipeline:

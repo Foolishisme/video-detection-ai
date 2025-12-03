@@ -29,18 +29,7 @@ from client.utils.visualization import (
     draw_alert_overlay,
     draw_enhanced_overlay
 )
-# 修复导入路径 - 根据你的项目结构调整
-try:
-    from core_extracted import AlertNotifier
-except ImportError:
-    # 如果 core_extracted 不存在，尝试其他可能的路径
-    try:
-        from client.core_extracted import AlertNotifier
-    except ImportError:
-        # 提供一个简单的默认实现
-        class AlertNotifier:
-            def send_alert(self, alert_data):
-                logger.warning(f"AlertNotifier not available. Alert: {alert_data}")
+from shared.notifier import AlertNotifier
 
 from shared.schemas import AlertType
 
