@@ -20,4 +20,5 @@ __pycache__/
 *.pt
 # 客户端配置文件（包含敏感信息）
 client/config.yaml
+data/
 
