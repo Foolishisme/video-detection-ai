@@ -1,0 +1,21 @@
+2025-12-04 14:17:29,633 - server.app - WARNING - 初始化共享YOLO检测器...
+2025-12-04 14:17:29,666 - server.app - WARNING - 初始化 2 个视频源
+2025-12-04 14:17:29,667 - server.app - WARNING - 所有组件初始化完成
+2025-12-04 14:17:30,752 - server.app - WARNING - 视频源 0 开始监控...
+2025-12-04 14:17:30,781 - server.app - WARNING - 视频源 1 开始监控...
+2025-12-04 14:17:30,781 - server.app - WARNING - 已启动 2 个视频源监控
+2025-12-04 14:17:38,502 - server.app - WARNING - [视频源1] 危险告警: 
+2025-12-04 14:18:04,918 - CameraConnector - WARNING - 读取帧失败或到达视频末尾
+2025-12-04 14:18:30,797 - server.app - WARNING - [视频源1] FPS: 10.2, 告警: 1, 分析: 22, 检测人数: 536
+2025-12-04 14:18:30,808 - server.app - WARNING - [视频源0] FPS: 9.4, 告警: 0, 分析: 2, 检测人数: 473
+2025-12-04 14:18:39,119 - CameraConnector - WARNING - 读取帧失败或到达视频末尾
+2025-12-04 14:27:09,557 - server.app - WARNING - 初始化共享YOLO检测器...
+2025-12-04 14:27:09,615 - server.app - WARNING - 初始化 2 个视频源
+2025-12-04 14:27:09,615 - server.app - WARNING - 所有组件初始化完成
+2025-12-04 14:27:10,750 - server.app - WARNING - 视频源 0 开始监控...
+2025-12-04 14:27:10,783 - server.app - WARNING - 视频源 1 开始监控...
+2025-12-04 14:27:10,784 - server.app - WARNING - 已启动 2 个视频源监控
+2025-12-04 14:27:44,855 - CameraConnector - WARNING - 读取帧失败或到达视频末尾
+2025-12-04 14:28:10,876 - server.app - WARNING - [视频源1] FPS: 8.3, 告警: 0, 分析: 22, 检测人数: 515
+2025-12-04 14:28:10,885 - server.app - WARNING - [视频源0] FPS: 8.3, 告警: 0, 分析: 2, 检测人数: 491
+2025-12-04 14:28:18,931 - CameraConnector - WARNING - 读取帧失败或到达视频末尾
