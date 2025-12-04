@@ -52,20 +52,26 @@ alert_counter = 0
 monitor_instance: Optional['MonitorService'] = None
 
 
-class MonitorService:
-    """监控服务核心类"""
+class SourceMonitor:
+    """单个视频源的监控实例"""
     
-    def __init__(self, config_path: str = "client/config.yaml"):
-        """初始化监控服务"""
-        self.config = self._load_config(config_path)
+    def __init__(self, source_id: int, source: Any, config: Dict[str, Any], 
+                 network_worker: Any, alert_notifier: Optional[AlertNotifier],
+                 alert_images_dir: Path):
+        """初始化单个视频源监控"""
+        self.source_id = source_id
+        self.source = source
+        self.config = config
+        self.network_worker = network_worker
+        self.alert_notifier = alert_notifier
+        self.alert_images_dir = alert_images_dir
+        
         self.pipeline: Optional[VideoPipeline] = None
         self.detector: Optional[PersonDetector] = None
-        self.network_worker: Optional[Any] = None
-        self.alert_notifier: Optional[AlertNotifier] = None
         
         # 状态管理
         self.last_upload_time = 0.0
-        self.cooldown_seconds = self.config.get('cooldown_seconds', 5.0)
+        self.cooldown_seconds = config.get('cooldown_seconds', 5.0)
         self.current_status = "初始化中..."
         self.last_analysis_result: Optional[Dict[str, Any]] = None
         
@@ -84,109 +90,6 @@ class MonitorService:
         # 运行标志
         self.running = False
         self.monitor_thread: Optional[threading.Thread] = None
-        
-        # 告警图片目录
-        self.alert_images_dir = project_root / "alerts"
-        self.alert_images_dir.mkdir(exist_ok=True)
-    
-    def _load_config(self, config_path: str) -> Dict[str, Any]:
-        """加载配置文件"""
-        try:
-            config_file = project_root / config_path
-            with open(config_file, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-            
-            return {
-                'llm_provider': config.get('llm_provider', 'remote'),
-                'server': config.get('server', {}),
-                'gemini': config.get('gemini', {}),
-                'thresholds': config.get('thresholds', {}),
-                'video': config.get('video', {}),
-                'cooldown_seconds': config.get('cooldown_seconds', 5.0)
-            }
-        except Exception as e:
-            logger.warning(f"加载配置文件失败: {e}，使用默认配置")
-            return {
-                'server': {'host': 'localhost', 'port': 8000, 'endpoint': '/chat'},
-                'video': {'source': 0, 'fps': 30},
-                'cooldown_seconds': 5.0
-            }
-    
-    def initialize(self) -> bool:
-        """初始化所有组件"""
-        try:
-            # 1. 初始化视频管道
-            video_config = self.config.get('video', {})
-            source = video_config.get('source', 0)
-            
-            if isinstance(source, str):
-                # 检查是否是 RTSP URL
-                if source.startswith('rtsp://'):
-                    # RTSP URL，直接使用
-                    logger.info(f"检测到 RTSP 视频源: {source}")
-                else:
-                    # 假设是文件路径，检查文件是否存在
-                    source_path = Path(source)
-                    if not source_path.is_absolute():
-                        source_path = project_root / source
-                    
-                    if not source_path.exists():
-                        logger.error(f"视频文件不存在: {source_path}")
-                        return False
-                    
-                    source = str(source_path)
-            
-            target_fps = video_config.get('target_fps', 0)
-            
-            self.pipeline = VideoPipeline(
-                source=source,
-                width=640,
-                height=480,
-                fps=video_config.get('fps', 30),
-                loop_video=video_config.get('loop_video', True),
-                target_fps=target_fps
-            )
-            
-            if not self.pipeline.start():
-                logger.error("视频管道启动失败")
-                return False
-            
-            # 2. 初始化YOLO检测器
-            model_path = "yolov8n.pt"
-            self.detector = PersonDetector(model_path=model_path)
-            
-            # 3. 初始化LLM工作线程
-            llm_provider = self.config.get('llm_provider', 'remote')
-            
-            if llm_provider == 'gemini':
-                gemini_config = self.config.get('gemini', {})
-                api_key = gemini_config.get('api_key')
-                
-                if not api_key or api_key == "your-api-key" or api_key.strip() == "":
-                    api_key = os.getenv("GEMINI_API_KEY")
-                
-                model_name = gemini_config.get('model_name', 'gemini-2.0-flash-exp')
-                self.network_worker = GeminiWorker(api_key=api_key, model_name=model_name)
-            else:
-                server_config = self.config.get('server', {})
-                server_url = f"http://{server_config.get('host', 'localhost')}:{server_config.get('port', 8000)}{server_config.get('endpoint', '/chat')}"
-                self.network_worker = NetworkWorker(server_url=server_url)
-            
-            self.network_worker.start(callback=self._on_analysis_result)
-            
-            # 4. 初始化报警通知器
-            self.alert_notifier = AlertNotifier()
-            
-            logger.info("所有组件初始化完成")
-            return True
-            
-        except Exception as e:
-            logger.error(f"初始化失败: {e}")
-            return False
-    
-    def _on_analysis_result(self, result: Dict[str, Any]):
-        """分析结果回调"""
-        self.last_analysis_result = result
     
     def _get_alert_severity(self, result: Dict[str, Any]) -> Optional[str]:
         """判断告警级别"""
@@ -195,7 +98,7 @@ class MonitorService:
             return "high"
         
         alert_type = result.get('alert_type', '')
-        reminder_keywords = ['垃圾', '提醒', '杂物']
+        reminder_keywords = ['垃圾', '提醒', '杂物', '积水']
         if alert_type and any(keyword in alert_type for keyword in reminder_keywords):
             return "low"
         
@@ -209,7 +112,7 @@ class MonitorService:
         try:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             reasoning_short = result.get('reasoning', '危险')[:20].replace(' ', '_').replace('/', '_')
-            filename = f"alert_{timestamp}_{alert_counter}_{reasoning_short}.jpg"
+            filename = f"alert_{timestamp}_{alert_counter}_s{self.source_id}_{reasoning_short}.jpg"
             filepath = self.alert_images_dir / filename
             
             cv2.imwrite(str(filepath), frame)
@@ -228,6 +131,7 @@ class MonitorService:
         
         alert_data = {
             "id": alert_counter,
+            "source_id": self.source_id,
             "timestamp": time.strftime("%H:%M:%S"),
             "type": result.get('alert_type', ''),
             "message": result.get('alert_message', ''),
@@ -244,9 +148,9 @@ class MonitorService:
         
         alerts.insert(0, alert_data)  # 插入到开头
         
-        # 只保留最近100条 - 修复：使用切片而不是重新赋值
+        # 只保留最近100条
         if len(alerts) > 100:
-            del alerts[100:]  # 删除索引100之后的所有元素
+            del alerts[100:]
         
         # 触发报警通知
         if severity == "high" and self.alert_notifier:
@@ -254,7 +158,7 @@ class MonitorService:
                 "rule_name": "危险动作检测",
                 "description": alert_data["message"] or alert_data["type"],
                 "severity": "高",
-                "location": "监控摄像头",
+                "location": f"监控摄像头 {self.source_id}",
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
             }
             self.alert_notifier.send_alert(alert_notification)
@@ -262,7 +166,7 @@ class MonitorService:
     def _monitor_loop(self):
         """监控主循环（在独立线程中运行）"""
         self.running = True
-        logger.info("开始监控...")
+        logger.info(f"视频源 {self.source_id} 开始监控...")
         self.current_status = "监控中..."
         
         self.frame_count = 0
@@ -321,13 +225,14 @@ class MonitorService:
 
 - REMINDER（提醒）的情况：
   * 地上有垃圾、杂物 -> 类型：垃圾
+  * 地面有积水 -> 类型：积水
   * 其他需要提醒但不危险的情况
 
 请以严格的 JSON 格式返回分析结果：
 {{
     "is_danger": true/false,
-    "alert_type": "具体类型，如：打架、摔倒、垃圾、安全等（简短，2-4个字）",
-    "alert_message": "简短的告警语句（10字以内），如：'检测到打架'、'有人摔倒'、'地上有垃圾'等",
+    "alert_type": "具体类型，如：打架、摔倒、垃圾、积水、安全等（简短，2-4个字）",
+    "alert_message": "简短的告警语句（10字以内），如：'检测到打架'、'有人摔倒'、'地上有垃圾'、'地面有积水'等",
     "reasoning": "详细的分析说明，解释为什么判定为安全或危险",
     "confidence": 0.0-1.0之间的浮点数，表示判断的置信度
 }}
@@ -358,39 +263,74 @@ class MonitorService:
                     
                     self.last_analysis_result = result
                 
-                # 5. 绘制信息覆盖层（已移除，避免与状态栏信息重叠）
-                # info_lines = [
-                #     f"帧率: {self.current_fps:.1f} FPS",
-                #     f"状态: {self.current_status}",
-                #     f"告警次数: {self.alert_count}",
-                #     f"分析次数: {self.analysis_count}",
-                # ]
-                # if has_person:
-                #     info_lines.append(f"检测到人数: {len(detections)}")
-                # 
-                # frame = draw_enhanced_overlay(frame, info_lines, position=(10, 30))
-                
-                # 如果有告警，绘制告警覆盖层（已移除，避免与状态栏信息重叠）
-                # if self.last_analysis_result:
-                #     severity = self._get_alert_severity(self.last_analysis_result)
-                #     if severity:
-                #         alert_message = self.last_analysis_result.get('alert_message', '')
-                #         if alert_message:
-                #             frame = draw_alert_overlay(frame, alert_message, severity=severity)
-                
-                # 6. 更新当前帧（用于视频流）
+                # 5. 更新当前帧（用于视频流）
                 with self.frame_lock:
                     self.current_frame = frame.copy()
                 
                 time.sleep(0.01)  # 避免CPU占用过高
                 
         except Exception as e:
-            logger.error(f"监控循环出错: {e}", exc_info=True)
+            logger.error(f"视频源 {self.source_id} 监控循环出错: {e}", exc_info=True)
         finally:
             self.running = False
     
+    def initialize(self) -> bool:
+        """初始化单个视频源"""
+        try:
+            video_config = self.config.get('video', {})
+            
+            # 处理视频源
+            source = self.source
+            # 如果 source 是列表，取第一个元素
+            if isinstance(source, list):
+                if len(source) > 0:
+                    source = source[0]
+                else:
+                    logger.error(f"视频源 {self.source_id}: 视频源列表为空")
+                    return False
+            
+            if isinstance(source, str):
+                if source.startswith('rtsp://'):
+                    logger.info(f"视频源 {self.source_id}: 检测到 RTSP 视频源")
+                else:
+                    source_path = Path(source)
+                    if not source_path.is_absolute():
+                        source_path = project_root / source
+                    
+                    if not source_path.exists():
+                        logger.error(f"视频源 {self.source_id}: 视频文件不存在: {source_path}")
+                        return False
+                    
+                    source = str(source_path)
+            
+            target_fps = video_config.get('target_fps', 0)
+            
+            self.pipeline = VideoPipeline(
+                source=source,
+                width=640,
+                height=480,
+                fps=video_config.get('fps', 30),
+                loop_video=video_config.get('loop_video', True),
+                target_fps=target_fps
+            )
+            
+            if not self.pipeline.start():
+                logger.error(f"视频源 {self.source_id}: 视频管道启动失败")
+                return False
+            
+            # 初始化YOLO检测器（每个视频源共享检测器，但可以独立实例化）
+            model_path = "yolov8n.pt"
+            self.detector = PersonDetector(model_path=model_path)
+            
+            logger.info(f"视频源 {self.source_id} 初始化完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"视频源 {self.source_id} 初始化失败: {e}")
+            return False
+    
     def start(self) -> bool:
-        """启动监控服务"""
+        """启动监控"""
         if not self.initialize():
             return False
         
@@ -399,13 +339,13 @@ class MonitorService:
         return True
     
     def stop(self):
-        """停止监控服务"""
+        """停止监控"""
         self.running = False
         if self.pipeline:
             self.pipeline.stop()
         if self.network_worker:
             self.network_worker.stop()
-        logger.info("监控服务已停止")
+        logger.info(f"视频源 {self.source_id} 已停止")
     
     def get_current_frame(self) -> Optional[np.ndarray]:
         """获取当前帧"""
@@ -413,7 +353,7 @@ class MonitorService:
             return self.current_frame.copy() if self.current_frame is not None else None
     
     def get_status(self) -> Dict[str, Any]:
-        """获取系统状态"""
+        """获取状态"""
         return {
             "fps": round(self.current_fps, 1),
             "status": self.current_status,
@@ -422,6 +362,174 @@ class MonitorService:
             "person_detection_count": self.person_detection_count,
             "connection_status": "Active" if self.running else "Inactive"
         }
+
+
+class MonitorService:
+    """监控服务核心类（支持多视频源）"""
+    
+    def __init__(self, config_path: str = "client/config.yaml"):
+        """初始化监控服务"""
+        self.config = self._load_config(config_path)
+        self.sources: Dict[int, SourceMonitor] = {}  # source_id -> SourceMonitor
+        self.network_worker: Optional[Any] = None
+        self.alert_notifier: Optional[AlertNotifier] = None
+        
+        # 告警图片目录
+        self.alert_images_dir = project_root / "alerts"
+        self.alert_images_dir.mkdir(exist_ok=True)
+    
+    def _load_config(self, config_path: str) -> Dict[str, Any]:
+        """加载配置文件"""
+        try:
+            config_file = project_root / config_path
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            
+            return {
+                'llm_provider': config.get('llm_provider', 'remote'),
+                'server': config.get('server', {}),
+                'gemini': config.get('gemini', {}),
+                'thresholds': config.get('thresholds', {}),
+                'video': config.get('video', {}),
+                'cooldown_seconds': config.get('cooldown_seconds', 5.0)
+            }
+        except Exception as e:
+            logger.warning(f"加载配置文件失败: {e}，使用默认配置")
+            return {
+                'server': {'host': 'localhost', 'port': 8000, 'endpoint': '/chat'},
+                'video': {'sources': [0], 'fps': 30},
+                'cooldown_seconds': 5.0
+            }
+    
+    def _load_config(self, config_path: str) -> Dict[str, Any]:
+        """加载配置文件"""
+        try:
+            config_file = project_root / config_path
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+            
+            return {
+                'llm_provider': config.get('llm_provider', 'remote'),
+                'server': config.get('server', {}),
+                'gemini': config.get('gemini', {}),
+                'thresholds': config.get('thresholds', {}),
+                'video': config.get('video', {}),
+                'cooldown_seconds': config.get('cooldown_seconds', 5.0)
+            }
+        except Exception as e:
+            logger.warning(f"加载配置文件失败: {e}，使用默认配置")
+            return {
+                'server': {'host': 'localhost', 'port': 8000, 'endpoint': '/chat'},
+                'video': {'sources': [0], 'fps': 30},
+                'cooldown_seconds': 5.0
+            }
+    
+    def _create_network_worker(self) -> Any:
+        """创建网络工作线程"""
+        llm_provider = self.config.get('llm_provider', 'remote')
+        
+        if llm_provider == 'gemini':
+            gemini_config = self.config.get('gemini', {})
+            api_key = gemini_config.get('api_key')
+            
+            if not api_key or api_key == "your-api-key" or api_key.strip() == "":
+                api_key = os.getenv("GEMINI_API_KEY")
+            
+            model_name = gemini_config.get('model_name', 'gemini-2.0-flash-exp')
+            network_worker = GeminiWorker(api_key=api_key, model_name=model_name)
+        else:
+            server_config = self.config.get('server', {})
+            server_url = f"http://{server_config.get('host', 'localhost')}:{server_config.get('port', 8000)}{server_config.get('endpoint', '/chat')}"
+            network_worker = NetworkWorker(server_url=server_url)
+        
+        network_worker.start(callback=None)
+        return network_worker
+    
+    def initialize(self) -> bool:
+        """初始化所有组件"""
+        try:
+            # 1. 初始化报警通知器（所有视频源共享）
+            self.alert_notifier = AlertNotifier()
+            
+            # 2. 初始化多个视频源
+            video_config = self.config.get('video', {})
+            sources = video_config.get('sources', [])
+            
+            # 兼容旧配置：如果 sources 不存在，使用 source
+            if not sources:
+                source = video_config.get('source', 0)
+                # 如果 source 已经是列表，直接使用；否则转换为列表
+                if isinstance(source, list):
+                    sources = source
+                else:
+                    sources = [source] if source is not None else [0]
+            
+            # 确保 sources 是列表格式
+            if not isinstance(sources, list):
+                sources = [sources]
+            
+            # 限制最多9个视频源
+            sources = sources[:9]
+            
+            logger.info(f"初始化 {len(sources)} 个视频源")
+            
+            for idx, source in enumerate(sources):
+                # 为每个视频源创建独立的 network_worker
+                network_worker = self._create_network_worker()
+                
+                source_monitor = SourceMonitor(
+                    source_id=idx,
+                    source=source,
+                    config=self.config,
+                    network_worker=network_worker,
+                    alert_notifier=self.alert_notifier,
+                    alert_images_dir=self.alert_images_dir
+                )
+                self.sources[idx] = source_monitor
+            
+            logger.info("所有组件初始化完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"初始化失败: {e}")
+            return False
+    
+    def start(self) -> bool:
+        """启动监控服务"""
+        if not self.initialize():
+            return False
+        
+        # 启动所有视频源
+        for source_id, source_monitor in self.sources.items():
+            if not source_monitor.start():
+                logger.error(f"视频源 {source_id} 启动失败")
+                return False
+        
+        logger.info(f"已启动 {len(self.sources)} 个视频源监控")
+        return True
+    
+    def stop(self):
+        """停止监控服务"""
+        for source_monitor in self.sources.values():
+            source_monitor.stop()
+        
+        logger.info("监控服务已停止")
+    
+    def get_source_count(self) -> int:
+        """获取视频源数量"""
+        return len(self.sources)
+    
+    def get_source_frame(self, source_id: int) -> Optional[np.ndarray]:
+        """获取指定视频源的当前帧"""
+        if source_id in self.sources:
+            return self.sources[source_id].get_current_frame()
+        return None
+    
+    def get_source_status(self, source_id: int) -> Optional[Dict[str, Any]]:
+        """获取指定视频源的状态"""
+        if source_id in self.sources:
+            return self.sources[source_id].get_status()
+        return None
 
 
 # API端点
@@ -443,13 +551,20 @@ async def shutdown_event():
         monitor_instance.stop()
 
 
-def generate_frames():
+def generate_frames(source_id: int = 0):
     """生成MJPEG视频流"""
     while True:
         if monitor_instance:
-            frame = monitor_instance.get_current_frame()
+            frame = monitor_instance.get_source_frame(source_id)
             if frame is not None:
                 ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ret:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            else:
+                # 如果没有视频源，生成黑屏
+                black_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+                ret, buffer = cv2.imencode('.jpg', black_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
                 if ret:
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
@@ -458,9 +573,18 @@ def generate_frames():
 
 @app.get("/video_feed")
 async def video_feed():
-    """MJPEG视频流端点"""
+    """MJPEG视频流端点（兼容旧接口，默认使用视频源0）"""
     return StreamingResponse(
-        generate_frames(),
+        generate_frames(0),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
+@app.get("/api/video_feed/{source_id}")
+async def video_feed_by_id(source_id: int):
+    """获取指定视频源的MJPEG视频流"""
+    return StreamingResponse(
+        generate_frames(source_id),
         media_type="multipart/x-mixed-replace; boundary=frame"
     )
 
@@ -482,10 +606,34 @@ async def get_alert_detail(alert_id: int):
 
 @app.get("/api/status")
 async def get_status():
-    """获取系统状态"""
+    """获取系统状态（兼容旧接口，返回视频源0的状态）"""
     if monitor_instance:
-        return monitor_instance.get_status()
+        status = monitor_instance.get_source_status(0)
+        if status:
+            return status
     return {"error": "监控服务未启动"}
+
+
+@app.get("/api/status/{source_id}")
+async def get_source_status(source_id: int):
+    """获取指定视频源的状态"""
+    if monitor_instance:
+        status = monitor_instance.get_source_status(source_id)
+        if status:
+            return status
+    return {"error": f"视频源 {source_id} 不存在或未启动"}
+
+
+@app.get("/api/sources")
+async def get_sources():
+    """获取所有视频源信息"""
+    if monitor_instance:
+        source_count = monitor_instance.get_source_count()
+        return {
+            "source_count": source_count,
+            "sources": list(range(source_count))
+        }
+    return {"error": "监控服务未启动", "source_count": 0, "sources": []}
 
 
 @app.get("/api/alerts/{alert_id}/image")

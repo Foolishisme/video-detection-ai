@@ -13,458 +13,298 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f5f5;
-            padding: 20px;
+            background-color: #000;
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 28px;
-        }
-
-        .dashboard {
+        .grid-container {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            grid-template-rows: auto auto;
-            gap: 20px;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100vw;
+            height: 100vh;
+            gap: 2px;
+            background-color: #000;
         }
 
-        .panel {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        .video-cell {
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
         }
 
-        .panel h2 {
-            font-size: 18px;
-            color: #333;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #4CAF50;
-            padding-bottom: 10px;
-        }
-
-        .video-panel {
-            grid-column: 1;
-            grid-row: 1;
-        }
-
-        .alert-log-panel {
-            grid-column: 1;
-            grid-row: 2;
-        }
-
-        .alert-detail-panel {
-            grid-column: 2;
-            grid-row: 2;
-        }
-
-        .stats-panel {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
-        #videoFeed {
+        .video-cell img {
             width: 100%;
-            height: auto;
-            border: 2px solid #ddd;
+            height: 100%;
+            object-fit: contain;
+            background-color: #000;
+        }
+
+        .alert-count-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            padding: 8px 12px;
             border-radius: 4px;
-            background: #000;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
         }
 
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .status-active {
-            background-color: #4CAF50;
-        }
-
-        .status-inactive {
-            background-color: #f44336;
-        }
-
-        .alert-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .alert-item {
+        .window-warning {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background-color: rgba(255, 193, 7, 0.8);
+            color: #000;
             padding: 12px;
-            margin-bottom: 8px;
-            border-left: 4px solid #ddd;
             border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .alert-item:hover {
-            background-color: #f9f9f9;
-        }
-
-        .alert-item.selected {
-            background-color: #e3f2fd;
-            border-left-color: #2196F3;
-        }
-
-        .alert-item.high {
-            border-left-color: #f44336;
-        }
-
-        .alert-item.low {
-            border-left-color: #ff9800;
-        }
-
-        .alert-item.safe {
-            border-left-color: #4CAF50;
-        }
-
-        .alert-time {
-            font-size: 12px;
-            color: #666;
-            margin-right: 10px;
-        }
-
-        .alert-type {
+            font-size: 16px;
             font-weight: bold;
-            margin-right: 10px;
+            text-align: center;
+            z-index: 20;
+            display: none;
         }
 
-        .alert-severity {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: bold;
-            margin-right: 10px;
+        .window-warning.show {
+            display: block;
         }
 
-        .severity-high {
-            background-color: #f44336;
-            color: white;
+        .fullscreen-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(220, 20, 60, 0.95);
+            color: #fff;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
         }
 
-        .severity-low {
-            background-color: #ff9800;
-            color: white;
+        .fullscreen-popup.show {
+            display: flex;
         }
 
-        .severity-safe {
-            background-color: #4CAF50;
-            color: white;
+        .fullscreen-popup-content {
+            text-align: center;
+            padding: 40px;
         }
 
-        .view-btn {
-            color: #2196F3;
-            text-decoration: none;
-            font-size: 12px;
+        .fullscreen-popup h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
 
-        .alert-detail-content {
-            min-height: 300px;
-        }
-
-        .alert-image {
-            width: 100%;
-            max-width: 500px;
-            border: 2px solid #ddd;
-            border-radius: 4px;
+        .fullscreen-popup .alert-type {
+            font-size: 36px;
             margin-bottom: 15px;
+            font-weight: bold;
         }
 
-        .detail-item {
+        .fullscreen-popup .alert-message {
+            font-size: 24px;
             margin-bottom: 10px;
         }
 
-        .detail-label {
-            font-weight: bold;
-            color: #666;
-            margin-right: 10px;
-        }
-
-        .detail-value {
-            color: #333;
-        }
-
-        .acknowledge-btn {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 15px;
-        }
-
-        .acknowledge-btn:hover {
-            background-color: #45a049;
-        }
-
-        .stats-content {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .stat-label {
-            color: #666;
-        }
-
-        .stat-value {
-            font-weight: bold;
-            color: #333;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: #999;
-            padding: 40px;
+        .fullscreen-popup .alert-time {
+            font-size: 18px;
+            opacity: 0.9;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>智能监控系统</h1>
-        
-        <div class="dashboard">
-            <!-- Live Camera Feed Panel -->
-            <div class="panel video-panel">
-                <h2>实时监控画面</h2>
-                <div>
-                    <span class="status-indicator status-active" id="aiStatus"></span>
-                    <span id="aiStatusText">AI: 监控中（安全）</span>
-                </div>
-                <img id="videoFeed" src="/video_feed" alt="视频流">
-                <div style="margin-top: 10px;">
-                    <span class="status-indicator status-active" id="connectionStatus"></span>
-                    <span>连接状态: <span id="connectionStatusText">已连接</span></span>
-                </div>
-            </div>
+    <div class="grid-container" id="gridContainer">
+        <!-- 9个视频格子，动态生成 -->
+    </div>
 
-            <!-- System Stats Panel -->
-            <div class="panel stats-panel">
-                <h2>系统状态</h2>
-                <div class="stats-content" id="systemStats">
-                    <div class="stat-item">
-                        <span class="stat-label">帧率:</span>
-                        <span class="stat-value" id="fpsValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">延迟:</span>
-                        <span class="stat-value" id="latencyValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">后端:</span>
-                        <span class="stat-value" id="backendValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">状态:</span>
-                        <span class="stat-value" id="statusValue">--</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">告警次数:</span>
-                        <span class="stat-value" id="alertCountValue">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">分析次数:</span>
-                        <span class="stat-value" id="analysisCountValue">0</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Alert Log Panel -->
-            <div class="panel alert-log-panel">
-                <h2>告警日志（实时）</h2>
-                <div class="alert-list" id="alertList">
-                    <div class="empty-state">暂无告警</div>
-                </div>
-            </div>
-
-            <!-- Selected Alert Details Panel -->
-            <div class="panel alert-detail-panel">
-                <h2>告警详情与图像</h2>
-                <div class="alert-detail-content" id="alertDetail">
-                    <div class="empty-state">点击告警列表中的条目查看详情</div>
-                </div>
-            </div>
+    <!-- 全屏危险弹窗 -->
+    <div class="fullscreen-popup" id="fullscreenPopup">
+        <div class="fullscreen-popup-content">
+            <h1>⚠️ 危险告警</h1>
+            <div class="alert-type" id="popupAlertType"></div>
+            <div class="alert-message" id="popupAlertMessage"></div>
+            <div class="alert-time" id="popupAlertTime"></div>
         </div>
     </div>
 
     <script>
-        let selectedAlertId = null;
+        const MAX_SOURCES = 9;
+        let sourceCount = 0;
+        let lastAlertIds = new Set(); // 用于跟踪已处理的告警
+        let windowWarnings = {}; // 存储每个视频窗口的警告信息
 
-        // 更新告警列表
-        async function updateAlerts() {
+        // 初始化网格
+        async function initGrid() {
+            try {
+                const response = await fetch('/api/sources');
+                const data = await response.json();
+                sourceCount = data.source_count || 0;
+                
+                const gridContainer = document.getElementById('gridContainer');
+                gridContainer.innerHTML = '';
+                
+                // 创建9个格子
+                for (let i = 0; i < MAX_SOURCES; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'video-cell';
+                    cell.id = `cell-${i}`;
+                    
+                    if (i < sourceCount) {
+                        // 有视频源，显示视频流
+                        const img = document.createElement('img');
+                        img.src = `/api/video_feed/${i}`;
+                        img.alt = `视频源 ${i}`;
+                        cell.appendChild(img);
+                        
+                        // 告警次数覆盖层
+                        const alertCountOverlay = document.createElement('div');
+                        alertCountOverlay.className = 'alert-count-overlay';
+                        alertCountOverlay.id = `alertCount-${i}`;
+                        alertCountOverlay.textContent = '告警: 0';
+                        cell.appendChild(alertCountOverlay);
+                        
+                        // 窗口警告覆盖层
+                        const windowWarning = document.createElement('div');
+                        windowWarning.className = 'window-warning';
+                        windowWarning.id = `windowWarning-${i}`;
+                        cell.appendChild(windowWarning);
+                    } else {
+                        // 无视频源，显示黑屏
+                        cell.style.backgroundColor = '#000';
+                    }
+                    
+                    gridContainer.appendChild(cell);
+                }
+            } catch (error) {
+                console.error('初始化网格失败:', error);
+            }
+        }
+
+        // 更新告警次数
+        async function updateAlertCounts() {
+            for (let i = 0; i < sourceCount; i++) {
+                try {
+                    const response = await fetch(`/api/status/${i}`);
+                    const status = await response.json();
+                    
+                    if (status.error) {
+                        continue;
+                    }
+                    
+                    const alertCountElement = document.getElementById(`alertCount-${i}`);
+                    if (alertCountElement) {
+                        alertCountElement.textContent = `告警: ${status.alert_count || 0}`;
+                    }
+                } catch (error) {
+                    console.error(`更新视频源 ${i} 告警次数失败:`, error);
+                }
+            }
+        }
+
+        // 监听新告警
+        async function checkNewAlerts() {
             try {
                 const response = await fetch('/api/alerts');
                 const data = await response.json();
                 const alerts = data.alerts || [];
                 
-                const alertList = document.getElementById('alertList');
-                
-                if (alerts.length === 0) {
-                    alertList.innerHTML = '<div class="empty-state">暂无告警</div>';
-                    return;
-                }
-                
-                alertList.innerHTML = alerts.map(alert => {
-                    const severityClass = alert.severity || 'safe';
-                    const severityText = alert.severity === 'high' ? '高' : 
-                                        alert.severity === 'low' ? '低' : '安全';
-                    const isSelected = selectedAlertId === alert.id ? 'selected' : '';
+                // 检查新告警
+                for (const alert of alerts) {
+                    const alertId = alert.id;
                     
-                    return `
-                        <div class="alert-item ${severityClass} ${isSelected}" onclick="selectAlert(${alert.id})">
-                            <span class="alert-time">${alert.timestamp}</span>
-                            <span class="alert-type">${alert.type || '未知'}</span>
-                            <span class="alert-severity severity-${severityClass}">${severityText}</span>
-                            <a href="#" class="view-btn" onclick="event.stopPropagation(); selectAlert(${alert.id}); return false;">[查看]</a>
-                        </div>
-                    `;
-                }).join('');
+                    // 如果已经处理过，跳过
+                    if (lastAlertIds.has(alertId)) {
+                        continue;
+                    }
+                    
+                    lastAlertIds.add(alertId);
+                    
+                    // 只保留最近100个告警ID
+                    if (lastAlertIds.size > 100) {
+                        const idsArray = Array.from(lastAlertIds);
+                        lastAlertIds = new Set(idsArray.slice(-100));
+                    }
+                    
+                    const sourceId = alert.source_id !== undefined ? alert.source_id : 0;
+                    const severity = alert.severity || 'safe';
+                    const isDanger = alert.is_danger || false;
+                    
+                    // 危险动作：全屏弹窗
+                    if (severity === 'high' && isDanger) {
+                        showFullscreenPopup(alert);
+                    }
+                    // 提醒类：小窗口警告
+                    else if (severity === 'low') {
+                        showWindowWarning(sourceId, alert);
+                    }
+                }
             } catch (error) {
-                console.error('Failed to fetch alerts:', error);
+                console.error('检查新告警失败:', error);
             }
         }
 
-        // 选择告警
-        async function selectAlert(alertId) {
-            selectedAlertId = alertId;
+        // 显示全屏危险弹窗
+        function showFullscreenPopup(alert) {
+            const popup = document.getElementById('fullscreenPopup');
+            const alertType = document.getElementById('popupAlertType');
+            const alertMessage = document.getElementById('popupAlertMessage');
+            const alertTime = document.getElementById('popupAlertTime');
             
-            try {
-                const response = await fetch(`/api/alerts/${alertId}`);
-                const alert = await response.json();
-                
-                if (alert.error) {
-                    document.getElementById('alertDetail').innerHTML = 
-                        `<div class="empty-state">${alert.error}</div>`;
-                    return;
-                }
-                
-                const imageUrl = alert.image_path ? `/api/alerts/${alertId}/image` : '';
-                const severityText = alert.severity === 'high' ? '高（红色）' : 
-                                    alert.severity === 'low' ? '低（黄色）' : '安全（绿色）';
-                
-                document.getElementById('alertDetail').innerHTML = `
-                    ${imageUrl ? `<img src="${imageUrl}" alt="告警图像" class="alert-image">` : ''}
-                    <div class="detail-item">
-                        <span class="detail-label">类型:</span>
-                        <span class="detail-value">${alert.type || '未知'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">严重程度:</span>
-                        <span class="detail-value">${severityText}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">消息:</span>
-                        <span class="detail-value">${alert.message || '无'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">分析说明:</span>
-                        <span class="detail-value">${alert.reasoning || '无'}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">置信度:</span>
-                        <span class="detail-value">${(alert.confidence * 100).toFixed(1)}%</span>
-                    </div>
-                    <button class="acknowledge-btn" onclick="acknowledgeAlert(${alertId})">确认</button>
-                `;
-                
-                // 更新选中状态
-                updateAlerts();
-            } catch (error) {
-                console.error('Failed to fetch alert detail:', error);
-            }
+            alertType.textContent = alert.type || '危险';
+            alertMessage.textContent = alert.message || '检测到危险情况';
+            alertTime.textContent = `时间: ${alert.timestamp || ''}`;
+            
+            popup.classList.add('show');
+            
+            // 5秒后自动关闭
+            setTimeout(() => {
+                popup.classList.remove('show');
+            }, 5000);
         }
 
-        // 确认告警
-        function acknowledgeAlert(alertId) {
-            alert(`告警 ${alertId} 已确认`);
-            // 这里可以添加确认逻辑
-        }
-
-        // 更新系统状态
-        async function updateStatus() {
-            try {
-                const response = await fetch('/api/status');
-                const status = await response.json();
-                
-                if (status.error) {
-                    document.getElementById('fpsValue').textContent = '--';
-                    document.getElementById('latencyValue').textContent = '--';
-                    document.getElementById('backendValue').textContent = '未连接';
-                    document.getElementById('statusValue').textContent = '--';
-                    document.getElementById('alertCountValue').textContent = '0';
-                    document.getElementById('analysisCountValue').textContent = '0';
-                    
-                    // 更新连接状态指示器
-                    const connectionStatus = document.getElementById('connectionStatus');
-                    const connectionStatusText = document.getElementById('connectionStatusText');
-                    connectionStatus.className = 'status-indicator status-inactive';
-                    connectionStatusText.textContent = '未激活';
-                    return;
-                }
-                
-                document.getElementById('fpsValue').textContent = status.fps || '--';
-                document.getElementById('latencyValue').textContent = '150ms'; // 固定值，实际可以从后端获取
-                document.getElementById('backendValue').textContent = status.connection_status === 'Active' ? '已激活' : '未激活';
-                document.getElementById('statusValue').textContent = status.status || '--';
-                document.getElementById('alertCountValue').textContent = status.alert_count || 0;
-                document.getElementById('analysisCountValue').textContent = status.analysis_count || 0;
-                
-                // 更新AI状态
-                const aiStatus = document.getElementById('aiStatus');
-                const aiStatusText = document.getElementById('aiStatusText');
-                if (status.connection_status === 'Active') {
-                    aiStatus.className = 'status-indicator status-active';
-                    aiStatusText.textContent = `AI: ${status.status || '监控中'}`;
-                } else {
-                    aiStatus.className = 'status-indicator status-inactive';
-                    aiStatusText.textContent = 'AI: 未连接';
-                }
-                
-                // 更新连接状态指示器
-                const connectionStatus = document.getElementById('connectionStatus');
-                const connectionStatusText = document.getElementById('connectionStatusText');
-                if (status.connection_status === 'Active') {
-                    connectionStatus.className = 'status-indicator status-active';
-                    connectionStatusText.textContent = '已连接';
-                } else {
-                    connectionStatus.className = 'status-indicator status-inactive';
-                    connectionStatusText.textContent = '未连接';
-                }
-            } catch (error) {
-                console.error('Failed to fetch status:', error);
+        // 显示小窗口警告
+        function showWindowWarning(sourceId, alert) {
+            const warningElement = document.getElementById(`windowWarning-${sourceId}`);
+            if (!warningElement) {
+                return;
             }
+            
+            warningElement.textContent = `${alert.type || '提醒'}: ${alert.message || ''}`;
+            warningElement.classList.add('show');
+            
+            // 存储警告信息
+            windowWarnings[sourceId] = {
+                type: alert.type,
+                message: alert.message,
+                timestamp: alert.timestamp
+            };
+            
+            // 10秒后自动隐藏（或直到新的告警覆盖）
+            setTimeout(() => {
+                if (windowWarnings[sourceId] && 
+                    windowWarnings[sourceId].timestamp === alert.timestamp) {
+                    warningElement.classList.remove('show');
+                    delete windowWarnings[sourceId];
+                }
+            }, 10000);
         }
 
         // 初始化
-        updateAlerts();
-        updateStatus();
+        initGrid();
 
         // 定时更新
-        setInterval(updateAlerts, 2000); // 每2秒更新告警列表
-        setInterval(updateStatus, 1000); // 每1秒更新系统状态
+        setInterval(updateAlertCounts, 2000); // 每2秒更新告警次数
+        setInterval(checkNewAlerts, 1000); // 每1秒检查新告警
     </script>
 </body>
 </html>
-

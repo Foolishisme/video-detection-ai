@@ -38,11 +38,14 @@ web_server:
 
 # 视频源配置
 video:
-  # source 可以是：
+  # sources 支持多个视频源（列表格式，最多9个）
+  # 每个视频源可以是：
   # - 数字（如 0, 1）：摄像头索引，0 为默认摄像头
   # - 字符串（如 "test_video.mp4"）：视频文件路径（相对于项目根目录或绝对路径）
   # - RTSP URL（如 "rtsp://user:pass@ip:port/stream"）：外置摄像头RTSP流
-  source: 0  # 示例：0（摄像头）或 "rtsp://normal:jU8azeo34@192.168.2.7:554/stream1"
+  sources: [0]  # 示例：[0] 或 [0, 1, "rtsp://normal:jU8azeo34@192.168.2.7:554/stream1"]
+  # 兼容旧配置：如果 sources 不存在，则使用 source（单个视频源）
+  # source: 0  # 已废弃，请使用 sources
   fps: 30
   width: 640
   height: 480
