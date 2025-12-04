@@ -23,6 +23,13 @@ import threading
 from queue import Queue, Empty
 from collections import deque
 
+# CPU监控依赖（可选）
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -44,6 +51,10 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# 如果psutil未安装，记录警告
+if not HAS_PSUTIL:
+    logger.warning("psutil未安装，CPU监控功能将不可用")
 
 # 创建FastAPI应用
 app = FastAPI(title="SmartMonitor API (Optimized)")
@@ -96,13 +107,15 @@ class DetectionTaskQueue:
         """工作线程:串行处理检测任务"""
         while self.running:
             try:
-                source_id, frame = self.task_queue.get(timeout=0.1)
+                source_id, frame = self.task_queue.get(timeout=1.0)  # 增加超时时间，减少轮询频率
                 has_person, detections = self.detector.detect(frame)
                 
                 with self.lock:
                     self.result_dict[source_id] = (has_person, detections)
                 
             except Empty:
+                # 队列为空时额外休眠，进一步降低CPU占用
+                time.sleep(0.1)
                 continue
             except Exception as e:
                 # 只记录错误，不记录正常流程
@@ -198,6 +211,10 @@ class SourceMonitor:
         self.analysis_count = 0
         self.person_detection_count = 0
         
+        # CPU监控
+        self.cpu_percent = 0.0
+        self.last_cpu_check = time.time()
+        
         self.running = False
         self.monitor_thread: Optional[threading.Thread] = None
     
@@ -290,7 +307,7 @@ class SourceMonitor:
             while self.running:
                 success, frame = self.pipeline.read_frame()
                 if not success:
-                    time.sleep(0.01)
+                    time.sleep(0.1)  # 增加失败时的休眠时间，减少空转CPU占用
                     continue
                 
                 # FPS计算（静默，不打印）
@@ -304,12 +321,25 @@ class SourceMonitor:
                     self.fps_start_time = current_time
                     last_fps_update = current_time
                 
+                # CPU使用率监控（每10秒检查一次）
+                if current_time - self.last_cpu_check >= 10.0:
+                    if HAS_PSUTIL:
+                        try:
+                            self.cpu_percent = psutil.Process().cpu_percent(interval=0.1)
+                            self.last_cpu_check = current_time
+                        except Exception:
+                            pass
+                    else:
+                        self.cpu_percent = 0.0
+                        self.last_cpu_check = current_time
+                
                 # 定期打印统计信息（每60秒一次）
                 if current_time - last_stats_log >= stats_log_interval:
                     logger.warning(
                         f"[视频源{self.source_id}] FPS: {self.current_fps:.1f}, "
                         f"告警: {self.alert_count}, 分析: {self.analysis_count}, "
-                        f"检测人数: {self.person_detection_count}"
+                        f"检测人数: {self.person_detection_count}, "
+                        f"CPU: {self.cpu_percent:.1f}%"
                     )
                     last_stats_log = current_time
                 
@@ -317,6 +347,7 @@ class SourceMonitor:
                 should_detect = (current_time - last_detection_time) >= target_detection_interval
                 
                 if should_detect:
+                    # 仅在需要检测时复制帧，减少不必要的内存分配
                     self.detection_queue.submit(self.source_id, frame.copy())
                     last_detection_time = current_time
                 
@@ -327,14 +358,19 @@ class SourceMonitor:
                     
                     if has_person:
                         self.person_detection_count += 1
-                        from client.core.detector import PersonDetector
-                        detector = PersonDetector()
-                        frame = detector.draw_detections(frame, detections)
+                        # 使用共享检测器绘制检测框，避免重复创建检测器实例
+                        # 注意：draw_detections需要检测器实例，但这里可以优化
+                        # 暂时保留原有逻辑，但减少不必要的实例创建
+                        if not hasattr(self, '_temp_detector'):
+                            from client.core.detector import PersonDetector
+                            self._temp_detector = PersonDetector()
+                        frame = self._temp_detector.draw_detections(frame, detections)
                         
                         time_since_last = current_time - self.last_upload_time
                         if time_since_last >= self.cooldown_seconds:
                             prompt = f"""分析画面中的人物姿态和行为..."""
                             
+                            # 仅在需要上传时复制帧
                             self.network_pool.submit_task(frame.copy(), prompt)
                             self.current_status = "正在分析..."
                             self.last_upload_time = current_time
@@ -358,9 +394,14 @@ class SourceMonitor:
                     else:
                         self.current_status = "安全"
                 
-                # 更新当前帧
+                # 更新当前帧（仅在需要时复制）
                 with self.frame_lock:
-                    self.current_frame = frame.copy()
+                    # 如果帧已存在且大小相同，可以复用，否则需要复制
+                    if self.current_frame is None or self.current_frame.shape != frame.shape:
+                        self.current_frame = frame.copy()
+                    else:
+                        # 直接复制数据，避免重新分配内存
+                        np.copyto(self.current_frame, frame)
                 
                 # 更新帧缓存 - 降低编码频率
                 if self.frame_count % 3 == 0:
@@ -368,8 +409,8 @@ class SourceMonitor:
                     if ret:
                         self.frame_cache.set(self.source_id, buffer.tobytes())
                 
-                # 增加休眠时间，降低CPU占用
-                time.sleep(0.033)  # 约30fps，避免过度占用CPU
+                # 增加休眠时间，降低CPU占用（从30fps降到10fps）
+                time.sleep(0.1)  # 约10fps，大幅降低CPU占用
                 
         except Exception as e:
             logger.error(f"视频源 {self.source_id} 监控循环出错: {e}", exc_info=True)
@@ -438,7 +479,8 @@ class SourceMonitor:
             "alert_count": self.alert_count,
             "analysis_count": self.analysis_count,
             "person_detection_count": self.person_detection_count,
-            "connection_status": "Active" if self.running else "Inactive"
+            "connection_status": "Active" if self.running else "Inactive",
+            "cpu_percent": round(self.cpu_percent, 1)
         }
 
 
@@ -599,7 +641,7 @@ def generate_frames_optimized(source_id: int = 0):
                     yield (b'--frame\r\n'
                            b'Content-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n')
         
-        time.sleep(0.05)  # 20fps
+        time.sleep(0.1)  # 降低到10fps，减少CPU占用
 
 
 @app.get("/api/video_feed/{source_id}")
