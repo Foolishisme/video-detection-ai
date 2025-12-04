@@ -17,7 +17,7 @@ __pycache__/
 !README.md
 .cursorignore
 .cursorruless
-.pt
+*.pt
 # 客户端配置文件（包含敏感信息）
 client/config.yaml
 
