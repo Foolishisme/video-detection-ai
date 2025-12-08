@@ -88,45 +88,102 @@ class FrameCache:
 
 
 class DetectionTaskQueue:
-    """检测任务队列,避免并发检测导致CPU峰值"""
-    def __init__(self, detector: PersonDetector, max_queue_size=50):
+    """
+    批量检测任务队列（优化版）
+    采用批量推理策略，将多路视频帧合并为batch进行推理，充分利用GPU并行能力
+    参考业界NVR系统的批量处理方案
+    """
+    def __init__(self, detector: PersonDetector, max_queue_size=50, 
+                 batch_size=4, max_wait_time=0.05):
+        """
+        初始化批量检测队列
+        
+        Args:
+            detector: 检测器实例
+            max_queue_size: 队列最大容量
+            batch_size: 批量大小（建议4-8，根据GPU内存调整）
+            max_wait_time: 最大等待时间（秒），用于收集批量任务
+        """
         self.detector = detector
         self.task_queue = Queue(maxsize=max_queue_size)
         self.result_dict = {}  # source_id -> (has_person, detections)
         self.lock = threading.Lock()
         self.running = False
         self.worker_thread = None
+        self.batch_size = batch_size
+        self.max_wait_time = max_wait_time
     
     def start(self):
         self.running = True
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
-        logger.info("检测任务队列已启动")
+        logger.warning(f"批量检测任务队列已启动 (批量大小: {self.batch_size}, 最大等待: {self.max_wait_time}s)")
     
     def _worker_loop(self):
-        """工作线程:串行处理检测任务"""
+        """工作线程:批量处理检测任务"""
         while self.running:
             try:
-                source_id, frame = self.task_queue.get(timeout=1.0)  # 增加超时时间，减少轮询频率
-                has_person, detections = self.detector.detect(frame)
+                # 收集批量任务
+                batch = []  # [(source_id, frame), ...]
+                batch_frames = []  # [frame, ...]
+                start_time = time.time()
                 
-                with self.lock:
-                    self.result_dict[source_id] = (has_person, detections)
+                # 收集批量任务：最多等待max_wait_time或收集到batch_size个
+                while len(batch) < self.batch_size:
+                    try:
+                        # 计算剩余等待时间
+                        elapsed = time.time() - start_time
+                        timeout = max(0.01, self.max_wait_time - elapsed)
+                        
+                        # 如果已经等待足够长时间，即使没收集满也处理
+                        if elapsed >= self.max_wait_time and len(batch) > 0:
+                            break
+                        
+                        source_id, frame = self.task_queue.get(timeout=timeout)
+                        batch.append(source_id)
+                        batch_frames.append(frame)
+                        
+                    except Empty:
+                        # 超时或队列为空
+                        if len(batch) > 0:
+                            # 有任务就处理，不等待
+                            break
+                        # 完全空闲时休眠
+                        time.sleep(0.05)
+                        break
                 
-            except Empty:
-                # 队列为空时额外休眠，进一步降低CPU占用
-                time.sleep(0.1)
-                continue
+                # 批量推理
+                if batch_frames:
+                    try:
+                        # 使用批量检测方法（关键优化点）
+                        batch_results = self.detector.detect_batch(batch_frames)
+                        
+                        # 分发结果
+                        with self.lock:
+                            for source_id, result in zip(batch, batch_results):
+                                self.result_dict[source_id] = result
+                    except Exception as e:
+                        logger.error(f"批量检测出错: {e}", exc_info=True)
+                        # 出错时返回空结果
+                        with self.lock:
+                            for source_id in batch:
+                                self.result_dict[source_id] = (False, [])
+                
             except Exception as e:
-                # 只记录错误，不记录正常流程
-                logger.error(f"检测任务出错: {e}")
+                logger.error(f"检测任务队列出错: {e}", exc_info=True)
+                time.sleep(0.1)
     
     def submit(self, source_id: int, frame: np.ndarray):
         """提交检测任务(非阻塞)"""
         try:
             self.task_queue.put_nowait((source_id, frame))
         except:
-            pass  # 队列满时丢弃
+            # 队列满时丢弃最旧的任务（FIFO策略）
+            try:
+                self.task_queue.get_nowait()  # 丢弃最旧的
+                self.task_queue.put_nowait((source_id, frame))  # 放入新的
+            except:
+                pass  # 如果还是失败，直接丢弃
     
     def get_result(self, source_id: int) -> Optional[tuple]:
         """获取检测结果"""
@@ -347,8 +404,11 @@ class SourceMonitor:
                 should_detect = (current_time - last_detection_time) >= target_detection_interval
                 
                 if should_detect:
-                    # 仅在需要检测时复制帧，减少不必要的内存分配
-                    self.detection_queue.submit(self.source_id, frame.copy())
+                    # 批量处理优化：只在队列未满时才提交，避免浪费复制操作
+                    # 注意：必须复制，因为后续可能会修改frame（绘制检测框等）
+                    if not self.detection_queue.task_queue.full():
+                        self.detection_queue.submit(self.source_id, frame.copy())
+                    # 队列满时跳过本次检测，等待下次机会（批量处理会自动处理积压）
                     last_detection_time = current_time
                 
                 # 获取检测结果（静默处理）
@@ -394,14 +454,16 @@ class SourceMonitor:
                     else:
                         self.current_status = "安全"
                 
-                # 更新当前帧（仅在需要时复制）
-                with self.frame_lock:
-                    # 如果帧已存在且大小相同，可以复用，否则需要复制
-                    if self.current_frame is None or self.current_frame.shape != frame.shape:
-                        self.current_frame = frame.copy()
-                    else:
-                        # 直接复制数据，避免重新分配内存
-                        np.copyto(self.current_frame, frame)
+                # 更新当前帧（优化：减少锁持有时间，使用高效复制）
+                # 只在需要时才更新（避免频繁复制）
+                if self.frame_count % 2 == 0:  # 每2帧更新一次，降低更新频率
+                    with self.frame_lock:
+                        # 如果帧已存在且大小相同，可以复用，否则需要复制
+                        if self.current_frame is None or self.current_frame.shape != frame.shape:
+                            self.current_frame = frame.copy()
+                        else:
+                            # 直接复制数据，避免重新分配内存（比copy()更高效）
+                            np.copyto(self.current_frame, frame)
                 
                 # 更新帧缓存 - 降低编码频率
                 if self.frame_count % 3 == 0:
@@ -529,25 +591,45 @@ class OptimizedMonitorService:
             logger.warning("初始化共享YOLO检测器...")  # 只打印关键信息
             self.shared_detector = PersonDetector(model_path="yolov8n.pt")
             
-            # 2. 初始化检测任务队列
-            self.detection_queue = DetectionTaskQueue(self.shared_detector)
-            self.detection_queue.start()
-            
-            # 3. 初始化网络工作线程池
-            self.network_pool = NetworkWorkerPool(
-                self._create_network_worker,
-                pool_size=2
-            )
-            
-            # 4. 初始化报警通知器
-            self.alert_notifier = AlertNotifier()
-            
-            # 5. 初始化视频源
+            # 2. 获取视频源数量（用于优化批量处理参数）
             video_config = self.config.get('video', {})
             sources = video_config.get('sources') or [video_config.get('source', 0)]
             if not isinstance(sources, list):
                 sources = [sources]
             sources = sources[:9]
+            num_sources = len(sources)
+            
+            # 根据视频源数量动态调整批量大小
+            # 批量大小：4路以下用4，4-9路用6，更多路用8
+            if num_sources <= 4:
+                batch_size = 4
+            elif num_sources <= 9:
+                batch_size = 6
+            else:
+                batch_size = 8
+            
+            # 最大等待时间：批量大小越大，等待时间可以稍长
+            max_wait_time = 0.05 if batch_size <= 4 else 0.08
+            
+            # 3. 初始化批量检测任务队列（优化版）
+            self.detection_queue = DetectionTaskQueue(
+                self.shared_detector,
+                max_queue_size=50,
+                batch_size=batch_size,
+                max_wait_time=max_wait_time
+            )
+            self.detection_queue.start()
+            
+            # 4. 初始化网络工作线程池
+            self.network_pool = NetworkWorkerPool(
+                self._create_network_worker,
+                pool_size=2
+            )
+            
+            # 5. 初始化报警通知器
+            self.alert_notifier = AlertNotifier()
+            
+            # 6. 初始化视频源
             
             logger.warning(f"初始化 {len(sources)} 个视频源")
             

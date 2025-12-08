@@ -319,8 +319,14 @@ def run_benchmark_logic(duration: int = 30):
         print("初始化共享检测器...")
         monitor_service.shared_detector = PersonDetector(model_path="yolov8n.pt")
         
-        print("初始化检测任务队列...")
-        monitor_service.detection_queue = DetectionTaskQueue(monitor_service.shared_detector)
+        print("初始化批量检测任务队列...")
+        # 4路并发，使用批量大小4
+        monitor_service.detection_queue = DetectionTaskQueue(
+            monitor_service.shared_detector,
+            max_queue_size=50,
+            batch_size=4,
+            max_wait_time=0.05
+        )
         monitor_service.detection_queue.start()
         
         print("初始化网络工作线程池...")

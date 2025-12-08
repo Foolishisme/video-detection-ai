@@ -1,0 +1,63 @@
+================================================================================
+性能分析报告 (按累计时间 cumtime 排序)
+分析时长: 30 秒
+================================================================================
+
+         2740046 function calls (2605716 primitive calls) in 34.318 seconds
+
+   Ordered by: cumulative time
+   List reduced from 10885 to 50 due to restriction <50>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        7    0.000    0.000  183.402   26.200 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py:1096(join)
+        7    0.004    0.001  183.069   26.153 {method 'join' of '_thread._ThreadHandle' objects}
+        4    0.000    0.000  120.627   30.157 D:\Code\Python\video-detection-ai\server\app.py:466(stop)
+        4    0.000    0.000   91.220   22.805 D:\Code\Python\video-detection-ai\scripts\benchmark_profile.py:146(stop)
+ 4878/957    0.020    0.000   61.793    0.065 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\queue.py:180(get)
+        2    0.000    0.000   61.617   30.808 D:\Code\Python\video-detection-ai\scripts\benchmark_profile.py:364(stop)
+    45/32    0.012    0.000   54.276    1.696 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py:337(wait)
+        1    0.000    0.000   34.321   34.321 D:\Code\Python\video-detection-ai\scripts\benchmark_profile.py:258(run_benchmark_logic)
+        1    0.000    0.000   30.810   30.810 D:\Code\Python\video-detection-ai\server\app.py:586(stop)
+        1    0.000    0.000   30.810   30.810 D:\Code\Python\video-detection-ai\server\app.py:172(stop)
+     14/1    0.000    0.000   30.809   30.809 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py:1029(_bootstrap)
+     14/1    0.001    0.000   30.809   30.809 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py:1064(_bootstrap_inner)
+     14/1    0.003    0.000   30.809   30.809 {method 'run' of '_contextvars.Context' objects}
+     14/1    0.003    0.000   30.809   30.809 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\threading.py:1012(run)
+      4/1    0.000    0.000   30.809   30.809 D:\Code\Python\video-detection-ai\scripts\benchmark_profile.py:339(_worker_loop)
+   5122/1   10.552    0.002   30.809   30.809 {built-in method time.sleep}
+        1    0.000    0.000   30.749   30.749 D:\Code\Python\video-detection-ai\server\app.py:136(stop)
+        1    0.000    0.000   30.746   30.746 D:\Code\Python\video-detection-ai\server\app.py:106(_worker_loop)
+      4/1    0.000    0.000   30.256   30.256 D:\Code\Python\video-detection-ai\server\app.py:287(_monitor_loop)
+5229/1168    0.171    0.000   11.957    0.010 {method 'acquire' of '_thread.lock' objects}
+2401/1458   11.160    0.005   10.853    0.007 D:\Code\Python\video-detection-ai\scripts\benchmark_profile.py:115(_generate_frame)
+      120    0.001    0.000    5.892    0.049 D:\Code\Python\video-detection-ai\client\core\detector.py:32(detect)
+      120    0.001    0.000    5.529    0.046 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\engine\model.py:154(__call__)
+      120    0.001    0.000    5.525    0.046 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\engine\model.py:482(predict)
+      240    0.002    0.000    5.380    0.022 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\torch\utils\_contextlib.py:27(generator_context)
+      120    0.001    0.000    5.345    0.045 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\engine\predictor.py:207(__call__)
+      240    0.002    0.000    5.199    0.022 {method 'send' of 'generator' objects}
+      120    0.004    0.000    5.178    0.043 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\engine\predictor.py:175(inference)
+25920/120    0.189    0.000    5.154    0.043 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\torch\nn\modules\module.py:1771(_wrapped_call_impl)
+25920/120    0.075    0.000    5.153    0.043 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\torch\nn\modules\module.py:1779(_call_impl)
+      120    0.002    0.000    5.152    0.043 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\nn\autobackend.py:630(forward)
+      120    0.001    0.000    4.948    0.041 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\nn\tasks.py:122(forward)
+      120    0.003    0.000    4.930    0.041 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\nn\tasks.py:139(predict)
+      240    0.006    0.000    4.765    0.020 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\engine\predictor.py:275(stream_inference)
+     6840    0.023    0.000    4.324    0.001 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\nn\modules\conv.py:80(forward_fuse)
+      120    0.013    0.000    4.245    0.035 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\ultralytics\nn\tasks.py:156(_predict_once)
+4926/4821    0.505    0.000    4.217    0.001 {method 'copy' of 'numpy.ndarray' objects}
+     7680    0.015    0.000    3.658    0.000 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\torch\nn\modules\conv.py:547(forward)
+     7680    0.207    0.000    3.579    0.000 C:\Users\unvdb\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\torch\nn\modules\conv.py:530(_conv_forward)
+  1848/17    0.007    0.000    3.521    0.207 <frozen importlib._bootstrap>:1360(_find_and_load)
+   1833/8    0.008    0.000    3.520    0.440 <frozen importlib._bootstrap>:1308(_find_and_load_unlocked)
+  1760/11    0.006    0.000    3.514    0.319 <frozen importlib._bootstrap>:914(_load_unlocked)
+  1702/10    0.004    0.000    3.513    0.351 <frozen importlib._bootstrap_external>:756(exec_module)
+  5242/18    0.003    0.000    3.511    0.195 <frozen importlib._bootstrap>:483(_call_with_frames_removed)
+  2118/10    0.103    0.000    3.508    0.351 {built-in method builtins.exec}
+        1    0.000    0.000    3.460    3.460 D:\Code\Python\video-detection-ai\server\app.py:1(<module>)
+     7680    2.856    0.000    3.010    0.000 {built-in method torch.conv2d}
+ 1656/195    0.003    0.000    2.767    0.014 {built-in method builtins.__import__}
+ 2528/196    0.003    0.000    2.749    0.014 <frozen importlib._bootstrap>:1401(_handle_fromlist)
+        1    0.000    0.000    2.181    2.181 D:\Code\Python\video-detection-ai\client\core\detector.py:1(<module>)
+
+

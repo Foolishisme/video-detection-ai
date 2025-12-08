@@ -31,7 +31,7 @@ class PersonDetector:
     
     def detect(self, frame: np.ndarray) -> Tuple[bool, List[dict]]:
         """
-        检测画面中是否有人
+        检测画面中是否有人（单帧检测）
         
         Args:
             frame: 输入图像帧
@@ -72,6 +72,54 @@ class PersonDetector:
         except Exception as e:
             self.logger.error(f"检测过程出错: {e}")
             return False, []
+    
+    def detect_batch(self, frames: List[np.ndarray]) -> List[Tuple[bool, List[dict]]]:
+        """
+        批量检测画面中是否有人（批量推理优化）
+        
+        Args:
+            frames: 输入图像帧列表
+            
+        Returns:
+            list: 每个元素为 (has_person, detections) 元组
+        """
+        if not frames:
+            return []
+        
+        try:
+            # 批量推理：将多帧合并为batch，充分利用GPU
+            # YOLO会自动处理batch推理
+            results = self.model(frames, conf=self.conf_threshold, classes=[0], verbose=False)
+            
+            batch_results = []
+            
+            for result in results:
+                detections = []
+                has_person = False
+                
+                if result and result.boxes is not None and len(result.boxes) > 0:
+                    has_person = True
+                    
+                    # 提取检测框信息
+                    for box in result.boxes:
+                        # 获取边界框坐标
+                        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                        conf = float(box.conf[0].cpu().numpy())
+                        
+                        detections.append({
+                            'bbox': [float(x1), float(y1), float(x2), float(y2)],
+                            'confidence': conf,
+                            'class_id': 0  # person类
+                        })
+                
+                batch_results.append((has_person, detections))
+            
+            return batch_results
+            
+        except Exception as e:
+            self.logger.error(f"批量检测过程出错: {e}")
+            # 返回与输入相同数量的空结果
+            return [(False, []) for _ in frames]
     
     def draw_detections(self, frame: np.ndarray, detections: List[dict]) -> np.ndarray:
         """
