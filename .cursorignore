@@ -31,3 +31,5 @@ yarn.lock
 alerts/
 *.md
 !README.md
+!normal.png
+!alert.png

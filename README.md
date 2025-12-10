@@ -30,12 +30,18 @@ SmartMonitor 是一个基于端云协同架构的智能监控系统，通过本�
    - ✅ **批量视频处理**：采用批量推理策略，将多路视频帧合并为batch进行推理，充分利用GPU并行能力，参考业界NVR系统方案
 
 3. **Web 前端界面** ⭐ 新功能
+   - ✅ **React + Material-UI v5 新版前端**：专业的暗色模式监控仪表板
+   - ✅ **动态网格布局**：根据视频源数量自动调整（1x1, 2x2, 3x3）
+   - ✅ **响应式设计**：支持移动端、平板、桌面端自适应
    - ✅ **9宫格监控布局**：支持最多9路视频源同时监控，全屏显示
    - ✅ 实时视频流显示：每个视频源独立的 MJPEG 流实时播放
    - ✅ **告警次数显示**：每个视频窗口左上角显示该源的告警次数（半透明覆盖）
+   - ✅ **AI 告警高亮**：危险告警时视频流边框红色闪烁动画
    - ✅ **全屏危险弹窗**：检测到危险动作时，全屏红色弹窗显示告警信息，5秒后自动关闭
    - ✅ **小窗口警告**：检测到提醒类告警（垃圾、积水等）时，在对应视频窗口内显示黄色警告
    - ✅ 自动刷新：告警次数和告警监听自动轮询更新
+   - ✅ **前后端分离**：独立的前端项目，支持独立开发和部署
+   - ✅ **CORS 配置**：后端已配置跨域支持，前端可直接调用 API
 
 4. **LLM 服务端（远端）**
    - ✅ Qwen2-VL 模型加载：支持 8bit 量化和 modelscope
@@ -94,8 +100,17 @@ SmartMonitor/
 │   ├── app.py                  # FastAPI 后端服务
 │   ├── start.py                # Web 服务启动脚本
 │   ├── static/
-│   │   └── index.html          # Web 前端页面
+│   │   └── index.html          # Web 前端页面（旧版 HTML）
 │   └── README.md               # 服务端使用说明
+│
+├── frontend/                   # React 前端项目 ⭐ 新增
+│   ├── src/
+│   │   ├── components/         # React 组件
+│   │   ├── api/                # API 调用封装
+│   │   ├── types/               # TypeScript 类型定义
+│   │   └── theme.ts             # MUI 主题配置
+│   ├── package.json
+│   └── README.md               # 前端使用说明
 │
 ├── shared/                     # 共享模块
 │   ├── schemas.py              # Pydantic 数据模型
@@ -127,10 +142,19 @@ SmartMonitor/
 - **psutil**: CPU使用率监控（可选依赖）
 
 ### Web 前端 ⭐ 新增
+
+#### 新版 React 前端（推荐）
+- **React 18+**: UI 框架
+- **TypeScript**: 类型安全
+- **Material-UI v5**: UI 组件库
+- **Vite**: 构建工具
+- **Emotion**: CSS-in-JS 样式引擎
+- **MJPEG**: 视频流传输协议
+
+#### 旧版 HTML 前端（兼容保留）
 - **HTML5**: 页面结构
 - **CSS3**: 样式和布局
 - **JavaScript**: 前端交互和轮询更新
-- **MJPEG**: 视频流传输协议
 
 ### LLM 服务端（远端）
 - **FastAPI**: Web 框架
@@ -146,9 +170,11 @@ SmartMonitor/
 
 ## 快速开始
 
-### 方式一：Web 服务模式（推荐）⭐ 新增
+### 方式一：统一开发启动（推荐）⭐ 最新
 
-#### 1. 安装依赖
+使用统一启动脚本同时启动前端和后端，适合开发环境。
+
+#### 1. 安装后端依赖
 
 ```bash
 pip install fastapi uvicorn
@@ -156,7 +182,15 @@ pip install -r requirements-client.txt  # 安装客户端依赖（包含 OpenCV�
 pip install psutil  # 可选：用于CPU使用率监控（未安装不影响其他功能）
 ```
 
-#### 2. 配置 LLM 提供商
+#### 2. 安装前端依赖
+
+```bash
+cd frontend
+npm install
+cd ..
+```
+
+#### 3. 配置 LLM 提供商
 
 编辑 `client/config.yaml`：
 
@@ -177,17 +211,70 @@ gemini:
   model_name: "gemini-2.5-flash-lite"  # 或 "gemini-2.0-flash-exp"
 ```
 
-#### 3. 启动 Web 服务
+#### 4. 启动开发环境
+
+```bash
+python start_dev.py
+```
+
+这将同时启动：
+- **后端 API 服务**: `http://127.0.0.1:8123`
+- **前端开发服务器**: `http://localhost:5173`
+
+#### 5. 访问应用
+
+- **前端界面**: http://localhost:5173 （React + MUI 新版界面）
+- **后端 API**: http://127.0.0.1:8123
+- **API 文档**: http://127.0.0.1:8123/docs
+
+按 `Ctrl+C` 可同时停止前端和后端服务。
+
+### 方式二：分别启动（适合生产环境）
+
+#### 启动后端
 
 ```bash
 python server/start.py
 ```
 
-或者从项目根目录运行：
+后端服务地址：`http://127.0.0.1:8123`
+
+#### 启动前端（开发模式）
 
 ```bash
-cd server
-python start.py
+cd frontend
+npm run dev
+```
+
+前端开发服务器地址：`http://localhost:5173`
+
+#### 构建前端（生产模式）
+
+```bash
+cd frontend
+npm run build
+```
+
+构建产物在 `frontend/dist/` 目录，可以部署到静态文件服务器或复制到 `server/static/` 目录。
+
+### 方式三：Web 服务模式（旧版 HTML 前端）
+
+#### 1. 安装依赖
+
+```bash
+pip install fastapi uvicorn
+pip install -r requirements-client.txt
+pip install psutil  # 可选
+```
+
+#### 2. 配置 LLM 提供商
+
+同方式一的配置步骤。
+
+#### 3. 启动 Web 服务
+
+```bash
+python server/start.py
 ```
 
 #### 4. 访问 Web 界面
@@ -492,6 +579,40 @@ video:
 }
 ```
 
+## 前端项目说明
+
+### React + Material-UI v5 前端
+
+项目包含一个现代化的 React 前端应用，位于 `frontend/` 目录。
+
+#### 技术特性
+
+- **React 18+** + **TypeScript**：类型安全的现代前端开发
+- **Material-UI v5**：专业的 UI 组件库，暗色主题优化
+- **Vite**：快速的构建工具，支持热模块替换（HMR）
+- **响应式设计**：自适应移动端、平板、桌面端
+- **实时数据更新**：自动轮询 API 获取最新状态和告警
+
+#### 主要组件
+
+- `Dashboard.tsx`：主仪表板组件，整合所有功能
+- `VideoGrid.tsx`：动态视频网格布局
+- `VideoFeed.tsx`：单个视频流组件，支持告警边框闪烁
+- `AlertCountBadge.tsx`：告警计数徽章
+- `WindowWarning.tsx`：小窗口警告组件
+- `FullscreenAlertDialog.tsx`：全屏危险弹窗
+
+#### 开发说明
+
+详细的前端开发说明请参考：[frontend/README.md](frontend/README.md)
+
+#### 前后端联调
+
+1. **CORS 配置**：后端已配置 CORS 中间件，允许前端跨域请求
+2. **统一启动**：使用 `start_dev.py` 可同时启动前端和后端
+3. **API 集成**：前端通过 `/api/*` 端点与后端通信
+4. **环境变量**：可在 `frontend/.env` 中配置 `VITE_API_BASE_URL`（默认使用相对路径）
+
 ## 性能优化说明
 
 ### CPU占用率优化
@@ -574,7 +695,9 @@ pip install psutil
 - [x] ✅ 优化大模型 Prompt 以提高准确率（已完成：支持具体告警类型和简短告警语句）
 - [x] ✅ 分级告警系统（已完成：全屏红色弹窗/小窗口黄色警告）
 - [x] ✅ Web 管理界面（已完成：前后端分离架构，9宫格监控界面）
-- [x] ✅ 支持多路视频流（已完成：最多9路视频源，9宫格布局）
+- [x] ✅ React + MUI v5 新版前端（已完成：专业的暗色模式监控仪表板）
+- [x] ✅ 前后端联调（已完成：CORS 配置，统一启动脚本）
+- [x] ✅ 支持多路视频流（已完成：最多9路视频源，动态网格布局）
 - [x] ✅ CPU性能优化（已完成：CPU占用率从83%降至30%以下，智能帧率控制）
 - [x] ✅ 批量视频处理优化（已完成：参考业界NVR系统，批量推理提升性能3-5倍，支持9路以上视频流）
 - [ ] 添加历史记录和回放功能
@@ -604,7 +727,10 @@ pip install psutil
 **最后更新**: 2025-12-04  
 **状态**: MVP 已完成，系统正常运行 ✅  
 **最新功能**: 
-- ⭐ **多视频源9宫格监控**：支持最多9路视频源同时监控，全屏9宫格布局
+- ⭐ **React + Material-UI v5 新版前端**：专业的暗色模式监控仪表板，响应式设计
+- ⭐ **前后端联调**：CORS 配置完成，统一启动脚本 `start_dev.py`
+- ⭐ **多视频源9宫格监控**：支持最多9路视频源同时监控，动态网格布局（1x1, 2x2, 3x3）
+- ⭐ **AI 告警高亮**：危险告警时视频流边框红色闪烁动画
 - ⭐ **智能分级告警系统**：全屏红色危险弹窗 + 小窗口黄色提醒警告
 - ⭐ **独立视频源管理**：每个视频源独立线程、独立状态、独立告警统计
 - ⭐ **告警次数显示**：每个视频窗口左上角实时显示告警次数

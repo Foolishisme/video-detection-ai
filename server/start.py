@@ -2,13 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 启动脚本
-启动FastAPI后端服务并自动打开浏览器
+启动FastAPI后端服务
 """
 
 import uvicorn
-import webbrowser
-import time
 import sys
+import os
 from pathlib import Path
 
 # 添加项目根目录到路径
@@ -17,33 +16,37 @@ sys.path.insert(0, str(project_root))
 
 def main():
     """主函数"""
-    # 服务器配置
-    host = "127.0.0.1"
-    port = 8123
-    url = f"http://{host}:{port}"
+    # 服务器配置 - 支持环境变量配置，默认允许外部访问
+    host = os.getenv("BACKEND_HOST", "0.0.0.0")  # 默认 0.0.0.0 允许外部访问
+    port = int(os.getenv("BACKEND_PORT", "8123"))
+    
+    # 显示URL时使用实际可访问的地址
+    display_host = host if host != "0.0.0.0" else "127.0.0.1"
+    url = f"http://{display_host}:{port}"
     
     print("=" * 60)
     print("SmartMonitor 后端服务启动中...")
     print("=" * 60)
-    print(f"服务地址: {url}")
-    print(f"API文档: {url}/docs")
+    print(f"后端 API 地址: {url}")
+    if host == "0.0.0.0":
+        print(f"外部访问地址: http://<your-ip>:{port}")
+    print(f"API 文档: {url}/docs")
+    print("=" * 60)
+    print("\n前端开发服务器:")
+    print("  如果使用统一启动脚本 (start_dev.py)，前端将自动启动")
+    print("  前端地址: http://localhost:5173")
+    print("  外部访问: http://<your-ip>:5173")
+    print("\n或者手动启动前端:")
+    print("  cd frontend")
+    print("  npm run dev")
     print("=" * 60)
     print("\n提示: 按 Ctrl+C 停止服务\n")
-    
-    # 延迟打开浏览器（等待服务启动）
-    def open_browser():
-        time.sleep(2)  # 等待2秒让服务启动
-        try:
-            webbrowser.open(url)
-            print(f"浏览器已自动打开: {url}")
-        except Exception as e:
-            print(f"无法自动打开浏览器: {e}")
-            print(f"请手动访问: {url}")
-    
-    # 在后台线程中打开浏览器
-    import threading
-    browser_thread = threading.Thread(target=open_browser, daemon=True)
-    browser_thread.start()
+    print("提示: 可通过环境变量配置:")
+    print("  BACKEND_HOST=0.0.0.0  (默认，允许外部访问)")
+    print("  BACKEND_PORT=8123     (默认端口)")
+    print("=" * 60)
+    print("\n注意: 前端界面需要通过 start_dev.py 启动或手动访问 http://localhost:5173")
+    print("=" * 60)
     
     # 启动FastAPI服务
     try:

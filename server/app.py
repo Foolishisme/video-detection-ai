@@ -17,8 +17,8 @@ import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import threading
 from queue import Queue, Empty
 from collections import deque
@@ -58,6 +58,15 @@ if not HAS_PSUTIL:
 
 # 创建FastAPI应用
 app = FastAPI(title="SmartMonitor API (Optimized)")
+
+# 配置 CORS - 允许前端跨域请求
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 开发环境允许所有源，生产环境应配置特定域名
+    allow_credentials=True,
+    allow_methods=["*"],  # 允许所有 HTTP 方法
+    allow_headers=["*"],  # 允许所有请求头
+)
 
 # 告警存储
 alerts: List[Dict[str, Any]] = []
@@ -768,15 +777,12 @@ async def get_alert_image(alert_id: int):
     return {"error": "图片不存在"}
 
 
-static_dir = project_root / "server" / "static"
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
 async def read_root():
-    html_file = static_dir / "index.html"
-    if html_file.exists():
-        with open(html_file, 'r', encoding='utf-8') as f:
-            return f.read()
-    return "<h1>SmartMonitor API (Optimized)</h1>"
+    """API根路径，返回API信息"""
+    return {
+        "name": "SmartMonitor API (Optimized)",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "frontend": "请使用 start_dev.py 启动前端开发服务器，或访问 http://localhost:5173"
+    }
